@@ -72,7 +72,8 @@ export function parseSubscription(input, { maxNodes = 30 } = {}) {
   let nodes;
 
   if (/^(vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\//i.test(text)) {
-    nodes = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map(parseShareLink);
+    nodes = text.split(/\r?\n|(?=(?:vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\/)/i)
+      .map((line) => line.trim()).filter(Boolean).map(parseShareLink);
   } else {
     let parsed = parseStructured(text);
     if (parsed === null) parsed = parseStructured(decodeBase64(text));
