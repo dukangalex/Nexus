@@ -10,10 +10,11 @@ export function normalizeConfig(input) {
   throw new TypeError("configuration must be text or object");
 }
 
-export function limitNodes(nodes, max = 30) {
+export function limitNodes(nodes, max = null) {
   if (!Array.isArray(nodes)) return [];
-  const limit = Number.isInteger(max) && max > 0 ? max : 30;
-  return nodes.slice(0, limit);
+  if (max === null || max === undefined) return nodes;
+  const limit = Number.isInteger(max) && max > 0 ? max : null;
+  return limit === null ? nodes : nodes.slice(0, limit);
 }
 
 export function dedupeNodes(nodes, key = "id") {
@@ -27,6 +28,6 @@ export function dedupeNodes(nodes, key = "id") {
   });
 }
 
-export function normalizeNodeConfig(nodes, max = 30) {
+export function normalizeNodeConfig(nodes, max = null) {
   return limitNodes(dedupeNodes(normalizeNodes(nodes)), max);
 }
