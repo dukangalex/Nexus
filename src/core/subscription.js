@@ -72,7 +72,7 @@ function parseShareLinks(text) {
   return matches.map((link) => parseShareLink(link));
 }
 
-export function parseSubscription(input, { maxNodes = 30 } = {}) {
+export function parseSubscription(input, { maxNodes = null } = {}) {
   if (typeof input !== "string" || !input.trim()) {
     throw new TypeError("subscription input must be non-empty text");
   }
