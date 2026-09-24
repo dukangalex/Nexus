@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test",
     "lint": "node --check src/core/sniffer.js && node --check src/core/chain.js && node --check src/core/security.js && node --check src/core/self-healing.js",
-    "upstream:check": "node scripts/check-upstream.mjs"
+    "upstream:check": "node scripts/check-upstream.mjs",
+    "kernel:conformance": "node scripts/kernel-conformance.mjs"
   },
   "engines": {
     "node": ">=20"
