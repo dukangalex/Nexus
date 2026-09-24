@@ -101,3 +101,18 @@ test("import pipeline rejects incompatible explicit kernel", () => {
     /incompatible/
   );
 });
+
+
+test("canonical node normalization exposes endpoint auth TLS and transport semantics", () => {
+  const node = normalizeNode({
+    name: "vless-1", protocol: "vless", server: "example.com", port: 443,
+    uuid: "u", sni: "example.com", network: "ws", path: "/x", udp: true
+  });
+  assert.equal(node.endpoint.server, "example.com");
+  assert.equal(node.endpoint.port, 443);
+  assert.equal(node.auth.uuid, "u");
+  assert.equal(node.tls.serverName, "example.com");
+  assert.equal(node.transport.type, "ws");
+  assert.equal(node.transport.path, "/x");
+  assert.equal(node.udp, true);
+});
