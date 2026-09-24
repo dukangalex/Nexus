@@ -3,6 +3,7 @@ import { Kernels } from "../core/model.js";
 export const AdapterCapabilities = Object.freeze({
   CONFIG_COMPILE: "config-compile",
   CHAIN_COMPILE: "chain-compile",
+  CONFIG_COMPILE: "config-compile",
   LIFECYCLE: "lifecycle",
   STATUS: "status",
   LOGS: "logs",
