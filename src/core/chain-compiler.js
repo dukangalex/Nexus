@@ -1,1 +1,11 @@
-import {Kernels} from "./model.js"; export function compileChain(kernel,chain){if(!chain||!Array.isArray(chain.hops)||chain.hops.length<2)throw new Error("invalid chain"); const mechanism=kernel===Kernels.MIHOMO?"dialer-proxy":kernel===Kernels.SING_BOX?"detour":kernel===Kernels.XRAY?"streamSettings.sockopt.dialerProxy":null; if(!mechanism)throw new Error("unsupported kernel"); return {kernel,mechanism,hops:chain.hops.map(h=>({id:h.id,type:h.type||"node",ref:h.ref||h.id}))};}
+import { Kernels } from "./model.js";
+import { compileMihomoChain } from "../adapters/mihomo/compiler.js";
+import { compileSingBoxChain } from "../adapters/sing-box/compiler.js";
+import { compileXrayChain } from "../adapters/xray/compiler.js";
+
+export function compileChain(kernel, config, chain) {
+  if (kernel === Kernels.MIHOMO) return compileMihomoChain(config, chain);
+  if (kernel === Kernels.SING_BOX) return compileSingBoxChain(config, chain);
+  if (kernel === Kernels.XRAY) return compileXrayChain(config, chain);
+  throw new Error("unsupported kernel");
+}
