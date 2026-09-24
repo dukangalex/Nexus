@@ -15,7 +15,7 @@ function compileNode(node) {
   if (auth.username && type === "http") output.username = auth.username;
   if (auth.password && ["http","trojan","shadowsocks","hysteria","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
   if (source.tls) {
-    output.tls = { enabled: Boolean(source.tls.enabled) };
+    output.tls = { enabled: Boolean(source.tls.enabled || source.tls.reality?.enabled) };
     if (source.tls.serverName) output.tls.server_name = source.tls.serverName;
     if (source.tls.minVersion) output.tls.min_version = source.tls.minVersion;
     if (source.tls.maxVersion) output.tls.max_version = source.tls.maxVersion;
@@ -44,6 +44,7 @@ function compileNode(node) {
   for (const key of ["security","packet_encoding","multiplex","congestion_control","udp_relay_mode","udp_over_stream","zero_rtt_handshake","heartbeat","up_mbps","down_mbps","hop_interval","hop_interval_max","bbr_profile","brutal_debug","disable_chrome_parrot","server_ports","obfs","realm","private_key","privateKey","peers","local_address","mtu"]) if (source[key] !== undefined) output[key] = clone(source[key]);
   if (source.privateKey !== undefined && output.private_key === undefined) output.private_key = clone(source.privateKey);
   if (source.encryption !== undefined) output.encryption = clone(source.encryption);
+  if (source.method !== undefined && type === "shadowsocks") output.method = clone(source.method);
   return output;
 }
 export function compileSingBoxConfig(config) {
