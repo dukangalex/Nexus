@@ -1,6 +1,7 @@
 import { Kernels } from "./model.js";
 import { UpstreamKernelRegistry } from "./kernel-registry.js";
 import { KernelCapabilityManifest } from "./kernel-capability-manifest.js";
+import { validateNodeCombinations } from "./combination-constraints.js";
 
 export const CompatibilityStatus = Object.freeze({
   SUPPORTED: "supported",
@@ -47,14 +48,38 @@ export function protocolCompatibility(kernel, protocol) {
 export function validateUnifiedCompatibility(config, kernel = config && config.kernel) {
   if (!config || typeof config !== "object") throw new TypeError("unified configuration is required");
   if (!Object.values(Kernels).includes(kernel)) throw new Error("unsupported kernel: " + kernel);
+
   const nodes = Array.isArray(config.nodes) ? config.nodes : [];
-  const results = nodes.map((node) => ({ id: node.id || node.name || null, ...protocolCompatibility(kernel, node.protocol || node.type) }));
+  const results = nodes.map((node) => ({
+    id: node.id || node.name || null,
+    ...protocolCompatibility(kernel, node.protocol || node.type)
+  }));
   const unknown = results.filter((item) => item.status === CompatibilityStatus.UNKNOWN);
   const unsupported = results.filter((item) => item.status === CompatibilityStatus.UNSUPPORTED);
-  return { kernel, version: KernelVersions[kernel], ok: unsupported.length === 0 && unknown.length === 0, status: unsupported.length ? CompatibilityStatus.UNSUPPORTED : (unknown.length ? CompatibilityStatus.UNKNOWN : CompatibilityStatus.SUPPORTED), nodes: results, unsupported, unknown };
+
+  const combination = validateNodeCombinations(kernel, nodes);
+  const constraintErrors = combination.errors;
+  const warnings = combination.warnings;
+
+  return {
+    kernel,
+    version: KernelVersions[kernel],
+    ok: unsupported.length === 0 && unknown.length === 0 && constraintErrors.length === 0,
+    status: unsupported.length || constraintErrors.length
+      ? CompatibilityStatus.UNSUPPORTED
+      : (unknown.length ? CompatibilityStatus.UNKNOWN : CompatibilityStatus.SUPPORTED),
+    nodes: results,
+    unsupported,
+    unknown,
+    constraintErrors,
+    warnings
+  };
 }
 
-export function buildCompatibilityMatrix(protocols = ["http", "socks", "shadowsocks", "vmess", "vless", "trojan", "wireguard", "hysteria", "hysteria2", "tuic", "anytls"]) {
+export function buildCompatibilityMatrix(protocols = [
+  "http", "socks", "shadowsocks", "vmess", "vless", "trojan",
+  "wireguard", "hysteria", "hysteria2", "tuic", "anytls"
+]) {
   return [...new Set(protocols.map(normalizeProtocol).filter(Boolean))].map((protocol) => {
     const row = { protocol };
     for (const kernel of Object.values(Kernels)) row[kernel] = protocolCompatibility(kernel, protocol);
