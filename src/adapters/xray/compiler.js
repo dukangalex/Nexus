@@ -14,7 +14,7 @@ function compileNode(node) {
   const port = Number(endpoint.port || source.port || source.server_port);
   const tag = source.name || source.id;
   if (!tag || !protocol || !server || !Number.isFinite(port)) throw new Error("Xray node requires tag, protocol, server and port: " + (source.id || "unknown"));
-  const auth = source.auth || {};
+  const auth = source.auth || source;
   const settings = clone(source.settings) || {};
   const output = { protocol, tag, settings };
   if (protocol === "vless") {
