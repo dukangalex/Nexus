@@ -10,7 +10,7 @@ function compileNode(node) {
   const source = clone(node) || {};
   const type = String(source.protocol || source.type || "").toLowerCase();
   const output = { type, tag: source.name || source.id, server: source.endpoint?.server || source.server || source.address, server_port: Number(source.endpoint?.port || source.server_port || source.port) };
-  const auth = source.auth || {};
+  const auth = source.auth || source;
   if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
   if (auth.username && type === "http") output.username = auth.username;
   if (auth.password && ["http","trojan","shadowsocks","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
