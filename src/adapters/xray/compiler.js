@@ -1,13 +1,11 @@
 import { validateChain } from "../../core/chain.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
-
 function requireProxy(config, id) {
   const proxy = (config.outbounds || []).find((o) => o && o.tag === id);
   if (!proxy) throw new Error("Xray outbound not found: " + id);
   return clone(proxy);
 }
-
 function compileNode(node) {
   const source = clone(node) || {};
   const protocol = String(source.protocol || source.type || "").toLowerCase();
@@ -15,52 +13,40 @@ function compileNode(node) {
   const server = endpoint.server || source.server || source.address;
   const port = Number(endpoint.port || source.port || source.server_port);
   const tag = source.name || source.id;
-  if (!tag || !protocol || !server || !Number.isFinite(port)) {
-    throw new Error("Xray node requires tag, protocol, server and port: " + (source.id || "unknown"));
-  }
-
+  if (!tag || !protocol || !server || !Number.isFinite(port)) throw new Error("Xray node requires tag, protocol, server and port: " + (source.id || "unknown"));
   const auth = source.auth || {};
   const settings = clone(source.settings) || {};
   const output = { protocol, tag, settings };
-  const flow = auth.flow || source.flow;
-
   if (protocol === "vless") {
-    settings.vnext = undefined;
-    settings.address = server;
-    settings.port = port;
-    settings.id = auth.uuid || source.uuid;
-    settings.encryption = source.encryption || "none";
-    if (flow) settings.flow = flow;
+    settings.address = server; settings.port = port; settings.id = auth.uuid || source.uuid; settings.encryption = source.encryption || "none";
+    if (auth.flow || source.flow) settings.flow = auth.flow || source.flow;
   } else if (protocol === "vmess") {
-    settings.vnext = [{
-      address: server,
-      port,
-      users: [{
-        id: auth.uuid || source.uuid,
-        alterId: auth.alterId ?? source.alterId ?? 0,
-        security: source.security || "auto"
-      }]
-    }];
+    settings.address = server; settings.port = port; settings.id = auth.uuid || source.uuid; settings.security = source.security || "auto"; settings.alterId = auth.alterId ?? source.alterId ?? 0;
   } else if (protocol === "trojan") {
-    settings.servers = [{ address: server, port, password: auth.password || source.password }];
+    settings.address = server; settings.port = port; settings.password = auth.password || source.password;
+  } else if (protocol === "hysteria") {
+    settings.version = source.version === undefined ? 2 : Number(source.version);
+    settings.address = server; settings.port = port;
+    if (auth.password || source.password) {
+      output.streamSettings = { method: "hysteria", hysteriaSettings: { version: settings.version, auth: auth.password || source.password } };
+    }
   } else if (protocol === "shadowsocks") {
-    settings.servers = [{ address: server, port, method: source.method || source.cipher, password: auth.password || source.password }];
-  } else if (protocol === "socks") {
-    settings.servers = [{ address: server, port, users: auth.username ? [{ user: auth.username, pass: auth.password || "" }] : [] }];
-  } else if (protocol === "http") {
-    settings.servers = [{ address: server, port, users: auth.username ? [{ user: auth.username, pass: auth.password || "" }] : [] }];
+    settings.address = server; settings.port = port; settings.method = source.method || source.cipher; settings.password = auth.password || source.password;
+  } else if (protocol === "socks" || protocol === "http") {
+    settings.address = server; settings.port = port;
+    if (auth.username) settings.user = auth.username;
+    if (auth.password) settings.pass = auth.password;
   } else if (protocol === "wireguard") {
     settings.secretKey = source.private_key || source.privateKey;
-    settings.address = server;
-    settings.port = port;
+    settings.address = Array.isArray(source.addresses) ? clone(source.addresses) : (Array.isArray(source.address) ? clone(source.address) : []);
+    settings.peers = Array.isArray(source.peers) ? clone(source.peers) : [];
+    for (const peer of settings.peers) if (peer && !peer.endpoint) peer.endpoint = server + ":" + port;
   }
-  if (auth.alterId !== null && auth.alterId !== undefined && protocol === "vmess") settings.alterId = auth.alterId;
-
   if (protocol === "vless" && !settings.id) throw new Error("Xray VLESS requires UUID: " + tag);
-  if (protocol === "vmess" && !settings.vnext[0].users[0].id) throw new Error("Xray VMess requires UUID: " + tag);
-  if (["trojan", "shadowsocks"].includes(protocol) && !settings.servers[0].password) throw new Error("Xray " + protocol + " requires password: " + tag);
-  if (protocol === "shadowsocks" && !settings.servers[0].method) throw new Error("Xray Shadowsocks requires method: " + tag);
-
+  if (protocol === "vmess" && !settings.id) throw new Error("Xray VMess requires UUID: " + tag);
+  if (["trojan","shadowsocks"].includes(protocol) && !settings.password) throw new Error("Xray " + protocol + " requires password: " + tag);
+  if (protocol === "shadowsocks" && !settings.method) throw new Error("Xray Shadowsocks requires method: " + tag);
+  if (protocol === "hysteria" && settings.version !== 2) throw new Error("Xray Hysteria outbound requires version 2: " + tag);
   if (source.tls) {
     output.streamSettings = output.streamSettings || {};
     output.streamSettings.security = source.tls.reality?.enabled ? "reality" : (source.tls.enabled ? "tls" : "none");
@@ -76,11 +62,7 @@ function compileNode(node) {
       output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
       output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint;
     }
-    if (source.tls.reality?.enabled) output.streamSettings.realitySettings = {
-      publicKey: source.tls.reality.publicKey,
-      shortId: source.tls.reality.shortId,
-      spiderX: source.tls.reality.spiderX
-    };
+    if (source.tls.reality?.enabled) output.streamSettings.realitySettings = { publicKey: source.tls.reality.publicKey, shortId: source.tls.reality.shortId, spiderX: source.tls.reality.spiderX };
   }
   if (source.transport?.type) {
     output.streamSettings = output.streamSettings || {};
@@ -90,19 +72,17 @@ function compileNode(node) {
       if (source.transport.headers) output.streamSettings.wsSettings.headers = clone(source.transport.headers);
     } else if (source.transport.type === "grpc") {
       output.streamSettings.grpcSettings = { serviceName: source.transport.serviceName || "" };
-    }
+    } else if (source.transport.type === "xhttp") output.streamSettings.xhttpSettings = clone(source.transport.raw || {});
   }
   if (source.streamSettings) output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
   return output;
 }
-
 export function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (config.routing && Object.keys(config.routing).length) output.routing = clone(config.routing);
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   return output;
 }
-
 export function compileXrayChain(config, chain) {
   const validation = validateChain(chain.mode, chain.hops);
   if (!validation.ok) throw new Error(validation.error);
