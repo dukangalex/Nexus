@@ -15,3 +15,42 @@ for (const kernel of Object.values(Kernels)) {
 test("adapter lookup rejects unknown kernels", () => {
   assert.equal(adapterFor("unknown"), null);
 });
+
+
+test("version-aware compiled validation reports the pinned upstream baseline", async () => {
+  const { validateCompiledConfig } = await import("../src/core/compiled-config-validation.js");
+  const result = validateCompiledConfig({ outbounds: [] }, Kernels.SING_BOX);
+  assert.equal(result.ok, true);
+  assert.equal(result.version, "1.14.1");
+});
+
+test("sing-box Hysteria requires current auth and TLS fields", async () => {
+  const { validateCompiledConfig } = await import("../src/core/compiled-config-validation.js");
+  const result = validateCompiledConfig({
+    outbounds: [{
+      type: "hysteria",
+      tag: "h",
+      server: "example.com",
+      server_port: 443,
+      auth_str: "secret",
+      tls: {}
+    }]
+  }, Kernels.SING_BOX);
+  assert.equal(result.ok, true);
+});
+
+test("sing-box rejects invalid Reality short_id length", async () => {
+  const { validateCompiledConfig } = await import("../src/core/compiled-config-validation.js");
+  const result = validateCompiledConfig({
+    outbounds: [{
+      type: "vless",
+      tag: "v",
+      server: "example.com",
+      server_port: 443,
+      uuid: "00000000-0000-4000-8000-000000000000",
+      tls: { reality: { enabled: true, public_key: "key", short_id: "0123456789abcdef" } }
+    }]
+  }, Kernels.SING_BOX);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /short_id/);
+});
