@@ -7,3 +7,5 @@ export * from "./core/kernel-capabilities.js";
 export * from "./core/unified-config.js";
 
 export * from "./core/compatibility.js";
+
+export * from "./core/config-compiler.js";
