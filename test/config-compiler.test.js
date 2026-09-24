@@ -82,3 +82,13 @@ test("compiles sing-box Hysteria2 password and TLS semantics", () => {
   assert.equal(result.config.outbounds[0].tls.server_name, "example.com");
   assert.deepEqual(result.config.outbounds[0].tls.alpn, ["h3"]);
 });
+
+test("preserves canonical auth flow across kernel compilers", () => {
+  const node = { id:"v", name:"v", protocol:"vless", server:"example.com", port:443, uuid:"u", flow:"xtls-rprx-vision" };
+  const xray = compileUnifiedConfig({ kernel: Kernels.XRAY, nodes:[node] });
+  const sing = compileUnifiedConfig({ kernel: Kernels.SING_BOX, nodes:[node] });
+  const mihomo = compileUnifiedConfig({ kernel: Kernels.MIHOMO, nodes:[node] });
+  assert.equal(xray.config.outbounds[0].settings.flow, "xtls-rprx-vision");
+  assert.equal(sing.config.outbounds[0].flow, "xtls-rprx-vision");
+  assert.equal(mihomo.config.proxies[0].flow, "xtls-rprx-vision");
+});
