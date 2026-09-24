@@ -7,12 +7,12 @@ export const CompatibilityStatus = Object.freeze({
 });
 
 // Baseline reviewed against upstream documentation/releases on 2026-09-24.
-// Stable: Mihomo v1.19.31, sing-box v1.14.2, Xray v26.9.8.
+// Stable: Mihomo v1.19.31, sing-box v1.14.1, Xray v26.9.8.
 // Pre-release tracks are intentionally not used as the production baseline:
 // Mihomo Alpha and sing-box 1.15.0-alpha.6 / Xray 26.9.9 are tracked separately.
 export const KernelVersions = Object.freeze({
   [Kernels.MIHOMO]: Object.freeze({ stable: "1.19.31", channel: "stable" }),
-  [Kernels.SING_BOX]: Object.freeze({ stable: "1.14.2", channel: "stable", preview: "1.15.0-alpha.6" }),
+  [Kernels.SING_BOX]: Object.freeze({ stable: "1.14.1", channel: "stable", preview: "1.15.0-alpha.6" }),
   [Kernels.XRAY]: Object.freeze({ stable: "26.9.8", channel: "stable", preview: "26.9.9" })
 });
 
