@@ -68,6 +68,8 @@ test("import pipeline automatically binds a high-confidence format", () => {
   assert.equal(result.binding.mode, "automatic");
   assert.equal(result.binding.requiresConfirmation, false);
   assert.equal(result.model.nodeCount, 1);
+  assert.equal(result.model.unifiedConfig.kernel, "mihomo");
+  assert.equal(result.model.unifiedConfig.nodes.length, 1);
 });
 
 test("import pipeline requires a prompt for ambiguous formats", () => {
