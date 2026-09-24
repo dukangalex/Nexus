@@ -39,3 +39,33 @@ test("adapter conformance matrix has no shared implementation object", () => {
   assert.notEqual(mihomo.compileConfig, xray.compileConfig);
   assert.notEqual(singBox.compileConfig, xray.compileConfig);
 });
+
+
+test("Xray VLESS Reality compiles using current realitySettings client fields", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.XRAY,
+    nodes: [{
+      id: "x-reality",
+      protocol: "vless",
+      server: "example.com",
+      port: 443,
+      uuid: "00000000-0000-0000-0000-000000000001",
+      tls: {
+        enabled: true,
+        serverName: "example.com",
+        fingerprint: "chrome",
+        reality: {
+          enabled: true,
+          publicKey: "test-public-key",
+          shortId: "01234567"
+        }
+      },
+      transport: { type: "grpc", serviceName: "proxy" }
+    }]
+  });
+  const reality = result.config.outbounds[0].streamSettings.realitySettings;
+  assert.equal(reality.password, "test-public-key");
+  assert.equal(reality.fingerprint, "chrome");
+  assert.equal(reality.shortId, "01234567");
+  assert.equal(result.validation.ok, true);
+});
