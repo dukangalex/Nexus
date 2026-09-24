@@ -9,6 +9,7 @@ const cases = [
   { kernel: Kernels.MIHOMO, node: { id: "hy2", protocol: "hysteria2", server: "example.com", port: 443, password: "p", tls: { enabled: true } } },
   { kernel: Kernels.MIHOMO, node: { id: "anytls", protocol: "anytls", server: "example.com", port: 443, password: "p", tls: { enabled: true } } },
   { kernel: Kernels.SING_BOX, node: { id: "basic", protocol: "socks", server: "example.com", port: 1080 } },
+  { kernel: Kernels.SING_BOX, node: { id: "hy", protocol: "hysteria", server: "example.com", port: 443, password: "p", tls: { enabled: true } } },
   { kernel: Kernels.SING_BOX, node: { id: "hy2", protocol: "hysteria2", server: "example.com", port: 443, password: "p", tls: { enabled: true } } },
   { kernel: Kernels.SING_BOX, node: { id: "tuic", protocol: "tuic", server: "example.com", port: 443, uuid: "00000000-0000-0000-0000-000000000001", password: "p", tls: { enabled: true } } },
   { kernel: Kernels.SING_BOX, node: { id: "anytls", protocol: "anytls", server: "example.com", port: 443, password: "p", tls: { enabled: true } } },
@@ -116,4 +117,25 @@ test("Mihomo Reality enables TLS even when tls.enabled is omitted", () => {
   });
   assert.equal(result.config.proxies[0].tls, true);
   assert.equal(result.validation.ok, true);
+});
+
+
+test("sing-box Hysteria compiles auth_str and nested transport fields", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [{
+      id: "hy",
+      protocol: "hysteria",
+      server: "example.com",
+      port: 443,
+      password: "secret",
+      tls: { enabled: true },
+      transport: { type: "grpc", serviceName: "proxy" }
+    }]
+  });
+  const outbound = result.config.outbounds[0];
+  assert.equal(outbound.auth_str, "secret");
+  assert.equal(outbound.password, undefined);
+  assert.deepEqual(outbound.transport, { type: "grpc", service_name: "proxy" });
+  assert.equal(outbound.service_name, undefined);
 });
