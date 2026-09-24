@@ -1,0 +1,1 @@
+export function classifyNetwork({online=true,trustedWifi=false,captivePortal=false,udpLoss=0}={}){if(!online)return "offline";if(captivePortal)return "captive-portal";if(udpLoss>80)return "tcp-fallback";return trustedWifi?"trusted-wifi":"public-network";}
