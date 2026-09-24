@@ -46,7 +46,8 @@ test("maps Xray routing and outbounds without treating groups as nodes", () => {
     inbounds: [],
     outbounds: [
       { tag: "proxy", protocol: "vless", settings: {} },
-      { tag: "direct", protocol: "freedom", settings: {} }
+      { tag: "direct", protocol: "freedom", settings: {} },
+      { tag: "block", protocol: "blackhole", settings: {} }
     ],
     routing: { rules: [] }
   }, {
