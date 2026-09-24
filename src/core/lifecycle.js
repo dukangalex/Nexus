@@ -1,0 +1,1 @@
+export class Lifecycle{constructor(){this.started=false;} start(){this.started=true;return this;} stop(){this.started=false;return this;} isRunning(){return this.started;}}
