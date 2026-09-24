@@ -44,7 +44,7 @@ export function inspectImport(input, { kernel = null } = {}) {
   const explicit = kernel !== null && kernel !== undefined;
   const selected = validateKernel(kernel) || detected.kernel;
 
-  if (explicit && detected.candidates.length && !detected.candidates.includes(selected)) {
+  if (explicit && detected.kernel && detected.kernel !== selected) {
     throw new Error("selected kernel is incompatible with detected format");
   }
 
