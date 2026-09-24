@@ -1,5 +1,6 @@
 import yaml from "js-yaml";
 import { dedupeNodes, limitNodes } from "./config.js";
+import { normalizeNodes } from "./model.js";
 
 const SHARE_PROTOCOLS = "(?:vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls)";
 const SHARE_LINK_RE = new RegExp(SHARE_PROTOCOLS + "://[^\\s\\\\]+", "gi");
@@ -92,14 +93,6 @@ export function parseSubscription(input, { maxNodes = 30 } = {}) {
     nodes = extractNodes(parsed);
   }
 
-  const normalized = nodes
-    .filter((node) => node && typeof node === "object")
-    .map((node, index) => ({
-      ...node,
-      id: String(node.id || node.name || node.tag || (node.protocol || node.type || "node") + "-" + (index + 1)),
-      name: String(node.name || node.tag || node.id || "Node " + (index + 1)),
-      kind: "node"
-    }));
-
+  const normalized = normalizeNodes(nodes);
   return limitNodes(dedupeNodes(normalized), maxNodes);
 }
