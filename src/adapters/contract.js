@@ -12,6 +12,7 @@ export const AdapterCapabilities = Object.freeze({
 const REQUIRED = [
   "kernel",
   "capabilities",
+  "compileConfig",
   "compileChain",
 ];
 
