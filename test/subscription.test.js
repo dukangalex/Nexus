@@ -23,6 +23,13 @@ test("parses Clash YAML and limits nodes", () => {
   assert.deepEqual(nodes.map((n) => n.name), ["US-1", "JP-1"]);
 });
 
+test("parses multiple share links without exposing the URI as the node id", () => {
+  const nodes = parseSubscription("vless://user@example.com:443?security=tls#US\\nvless://user@example.org:443?security=tls#JP");
+  assert.equal(nodes.length, 2);
+  assert.match(nodes[0].id, /^share-[0-9a-f]+$/);
+  assert.notEqual(nodes[0].id, nodes[0].uri);
+});
+
 test("parses share links", () => {
   const nodes = parseSubscription("vless://user@example.com:443?security=tls#US");
   assert.equal(nodes.length, 1);
