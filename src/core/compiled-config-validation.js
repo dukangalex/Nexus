@@ -68,7 +68,7 @@ function validateXrayOutbound(outbound, index, errors) {
     const reality = nonEmptyObject(outbound.streamSettings.realitySettings) ? outbound.streamSettings.realitySettings : {};
     if (!hasText(reality.password)) push(errors, label + " Reality requires password (client public key)");
     if (!hasText(reality.fingerprint)) push(errors, label + " Reality requires fingerprint");
-    if (reality.shortId !== undefined && !/^[0-9a-fA-F]{0,16}$/.test(String(reality.shortId)) || (reality.shortId !== undefined && String(reality.shortId).length % 2 !== 0)) push(errors, label + " Reality shortId must be an even-length hexadecimal string");
+    if (reality.shortId !== undefined) {\n      const shortId = String(reality.shortId);\n      if (!/^[0-9a-fA-F]{0,16}$/.test(shortId) || shortId.length % 2 !== 0) push(errors, label + " Reality shortId must be an even-length hexadecimal string");\n    }
   }
 }
 
