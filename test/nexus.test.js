@@ -54,3 +54,36 @@ test("canonical node model normalizes protocol and preserves source fields", asy
   assert.equal(node.protocol, "vless");
   assert.equal(node.server, "example.com");
 });
+
+import { inspectImport, importConfig } from "../src/core/import-pipeline.js";
+
+test("import pipeline automatically binds a high-confidence format", () => {
+  const result = importConfig("proxies:\n  - name: us\n    type: vless");
+  assert.equal(result.binding.kernel, "mihomo");
+  assert.equal(result.binding.mode, "automatic");
+  assert.equal(result.binding.requiresConfirmation, false);
+  assert.equal(result.model.nodeCount, 1);
+});
+
+test("import pipeline requires a prompt for ambiguous formats", () => {
+  const result = inspectImport(JSON.stringify({ inbounds: [], outbounds: [] }));
+  assert.equal(result.binding.kernel, null);
+  assert.equal(result.binding.requiresConfirmation, true);
+  assert.deepEqual(result.binding.prompt.options, ["sing-box", "xray"]);
+});
+
+test("import pipeline accepts an explicit compatible kernel override", () => {
+  const result = inspectImport("vless://example", { kernel: "xray" });
+  assert.equal(result.binding.kernel, "xray");
+  assert.equal(result.binding.mode, "explicit");
+  assert.equal(result.binding.requiresConfirmation, false);
+});
+
+test("import pipeline preserves user-selected node limit", () => {
+  const result = importConfig(
+    "vless://one\nvless://two\nvless://three",
+    { kernel: "xray", maxNodes: 2 }
+  );
+  assert.equal(result.model.nodeCount, 2);
+  assert.equal(result.model.nodeLimit, 2);
+});
