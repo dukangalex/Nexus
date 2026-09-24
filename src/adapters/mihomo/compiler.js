@@ -38,9 +38,12 @@ function compileNode(node) {
   if (!output.name || !output.type || !output.server || !Number.isFinite(output.port)) {
     throw new Error("Mihomo node requires name, type, server and port: " + (source.id || "unknown"));
   }
-  for (const key of ["udp", "tls", "sni", "servername", "network", "ws-opts", "grpc-opts", "reality-opts", "client-fingerprint", "uuid", "password", "username"]) {
-    if (source[key] !== undefined) output[key] = clone(source[key]);
-  }
+  if (source.udp !== undefined) output.udp = Boolean(source.udp);
+  if (source.flow !== undefined) output.flow = clone(source.flow);
+  if (source.auth?.flow !== undefined) output.flow = clone(source.auth.flow);
+  if (source.auth?.alterId !== undefined) output.alterId = clone(source.auth.alterId);
+  if (source.method !== undefined) output.cipher = clone(source.method);
+  if (source.cipher !== undefined) output.cipher = clone(source.cipher);
   return output;
 }
 
