@@ -76,7 +76,16 @@ export function importConfig(input, { kernel = null, maxNodes = null } = {}) {
       : Array.isArray(input.nodes)
         ? input.nodes
         : Array.isArray(input.outbounds)
-          ? input.outbounds.filter((item) => item && item.type && !["selector", "urltest", "direct", "block", "dns"].includes(item.type))
+          ? input.outbounds.filter((item) => {
+              if (!item || typeof item !== "object") return false;
+              const type = String(item.type || "").toLowerCase();
+              const protocol = String(item.protocol || "").toLowerCase();
+              return ![
+                "selector", "urltest", "direct", "block", "dns", "loopback", "freedom", "blackhole"
+              ].includes(type) && ![
+                "freedom", "blackhole", "dns", "loopback", "selector", "balancer"
+              ].includes(protocol);
+            })
           : [];
     nodes = normalizeNodeConfig(candidates, maxNodes);
   } else {
