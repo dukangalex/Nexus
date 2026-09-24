@@ -19,17 +19,22 @@ function arrayOf(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function isNonProxyOutbound(item) {
+  if (!item || typeof item !== "object") return true;
+  const type = String(item.type || "").toLowerCase();
+  const protocol = String(item.protocol || "").toLowerCase();
+  return [
+    "selector", "urltest", "direct", "block", "dns", "loopback", "freedom", "blackhole"
+  ].includes(type) || [
+    "freedom", "blackhole", "dns", "loopback", "selector", "balancer"
+  ].includes(protocol);
+}
+
 function extractNodes(input) {
   if (!input || typeof input !== "object") return [];
   if (Array.isArray(input.proxies)) return input.proxies;
   if (Array.isArray(input.nodes)) return input.nodes;
-  if (Array.isArray(input.outbounds)) {
-    return input.outbounds.filter((item) => {
-      if (!item || typeof item !== "object") return false;
-      const type = String(item.type || "").toLowerCase();
-      return !["selector", "urltest", "direct", "block", "dns", "loopback", "freedom", "blackhole"].includes(type);
-    });
-  }
+  if (Array.isArray(input.outbounds)) return input.outbounds.filter((item) => !isNonProxyOutbound(item));
   return [];
 }
 
