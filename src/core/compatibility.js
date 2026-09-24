@@ -1,4 +1,5 @@
 import { Kernels } from "./model.js";
+import { UpstreamKernelRegistry } from "./kernel-registry.js";
 
 export const CompatibilityStatus = Object.freeze({
   SUPPORTED: "supported",
@@ -10,11 +11,13 @@ export const CompatibilityStatus = Object.freeze({
 // Stable: Mihomo v1.19.31, sing-box v1.14.1, Xray v26.9.8.
 // Pre-release tracks are intentionally not used as the production baseline:
 // Mihomo Alpha and sing-box 1.15.0-alpha.6 / Xray 26.9.9 are tracked separately.
-export const KernelVersions = Object.freeze({
-  [Kernels.MIHOMO]: Object.freeze({ stable: "1.19.31", channel: "stable" }),
-  [Kernels.SING_BOX]: Object.freeze({ stable: "1.14.1", channel: "stable", preview: "1.15.0-alpha.6" }),
-  [Kernels.XRAY]: Object.freeze({ stable: "26.9.8", channel: "stable", preview: "26.9.9" })
-});
+export const KernelVersions = Object.freeze(Object.fromEntries(
+  Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, Object.freeze({
+    stable: entry.stable,
+    channel: entry.channel,
+    ...(entry.preview ? { preview: entry.preview } : {})
+  })])
+));
 
 const PROTOCOLS = Object.freeze({
   mihomo: new Set(["http", "socks", "shadowsocks", "vmess", "vless", "trojan", "wireguard", "tuic", "hysteria2", "anytls"]),
@@ -28,11 +31,7 @@ const KNOWN_UNSUPPORTED = Object.freeze({
   xray: new Set(["hysteria2", "tuic", "anytls"])
 });
 
-const EVIDENCE = Object.freeze({
-  mihomo: "https://wiki.metacubex.one/en/config/proxies/",
-  "sing-box": "https://sing-box.sagernet.org/configuration/outbound/",
-  xray: "https://xtls.github.io/en/config/outbounds/"
-});
+const EVIDENCE = Object.freeze(Object.fromEntries(Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, entry.docs])));
 
 function normalizeProtocol(protocol) {
   const value = String(protocol || "").trim().toLowerCase();
