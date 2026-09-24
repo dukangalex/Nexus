@@ -58,11 +58,19 @@ function compileNode(node) {
       output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
       output.streamSettings.tlsSettings.alpn = [...source.tls.alpn];
     }
-    if (source.tls.fingerprint) {
+    if (source.tls.fingerprint && !source.tls.reality?.enabled) {
       output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
       output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint;
     }
-    if (source.tls.reality?.enabled) output.streamSettings.realitySettings = { publicKey: source.tls.reality.publicKey, shortId: source.tls.reality.shortId, spiderX: source.tls.reality.spiderX };
+    if (source.tls.reality?.enabled) {
+      output.streamSettings.realitySettings = {
+        serverName: source.tls.serverName || "",
+        fingerprint: source.tls.fingerprint || "chrome",
+        password: source.tls.reality.publicKey,
+        shortId: source.tls.reality.shortId,
+        spiderX: source.tls.reality.spiderX
+      };
+    }
   }
   if (source.transport?.type) {
     output.streamSettings = output.streamSettings || {};
