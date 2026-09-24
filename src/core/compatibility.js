@@ -1,5 +1,6 @@
 import { Kernels } from "./model.js";
 import { UpstreamKernelRegistry } from "./kernel-registry.js";
+import { KernelCapabilityManifest } from "./kernel-capability-manifest.js";
 
 export const CompatibilityStatus = Object.freeze({
   SUPPORTED: "supported",
@@ -7,10 +8,7 @@ export const CompatibilityStatus = Object.freeze({
   UNKNOWN: "unknown"
 });
 
-// Baseline reviewed against upstream documentation/releases on 2026-09-24.
-// Stable: Mihomo v1.19.31, sing-box v1.14.1, Xray v26.9.8.
-// Pre-release tracks are intentionally not used as the production baseline:
-// Mihomo Alpha and sing-box 1.15.0-alpha.6 / Xray 26.9.9 are tracked separately.
+// Production baselines are owned by kernel-registry.js; this module consumes them.
 export const KernelVersions = Object.freeze(Object.fromEntries(
   Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, Object.freeze({
     stable: entry.stable,
@@ -19,19 +17,9 @@ export const KernelVersions = Object.freeze(Object.fromEntries(
   })])
 ));
 
-const PROTOCOLS = Object.freeze({
-  mihomo: new Set(["http", "socks", "shadowsocks", "vmess", "vless", "trojan", "wireguard", "tuic", "hysteria2", "anytls"]),
-  "sing-box": new Set(["http", "socks", "shadowsocks", "vmess", "vless", "trojan", "wireguard", "hysteria", "hysteria2", "tuic", "anytls"]),
-  xray: new Set(["http", "socks", "shadowsocks", "vmess", "vless", "trojan", "wireguard", "hysteria"])
-});
-
-const KNOWN_UNSUPPORTED = Object.freeze({
-  mihomo: new Set([]),
-  "sing-box": new Set([]),
-  xray: new Set(["hysteria2", "tuic", "anytls"])
-});
-
-const EVIDENCE = Object.freeze(Object.fromEntries(Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, entry.docs])));
+const EVIDENCE = Object.freeze(Object.fromEntries(
+  Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, entry.docs])
+));
 
 function normalizeProtocol(protocol) {
   const value = String(protocol || "").trim().toLowerCase();
@@ -43,10 +31,17 @@ function normalizeProtocol(protocol) {
 export function protocolCompatibility(kernel, protocol) {
   if (!Object.values(Kernels).includes(kernel)) throw new Error("unsupported kernel: " + kernel);
   const normalized = normalizeProtocol(protocol);
-  if (!normalized) return { kernel, protocol: null, status: CompatibilityStatus.UNKNOWN, reason: "node protocol is missing", evidence: EVIDENCE[kernel], version: KernelVersions[kernel] };
-  if (KNOWN_UNSUPPORTED[kernel].has(normalized)) return { kernel, protocol: normalized, status: CompatibilityStatus.UNSUPPORTED, reason: "upstream kernel does not expose this outbound protocol", evidence: EVIDENCE[kernel], version: KernelVersions[kernel] };
-  if (PROTOCOLS[kernel].has(normalized)) return { kernel, protocol: normalized, status: CompatibilityStatus.SUPPORTED, reason: "verified in the maintained upstream outbound documentation", evidence: EVIDENCE[kernel], version: KernelVersions[kernel] };
-  return { kernel, protocol: normalized, status: CompatibilityStatus.UNKNOWN, reason: "not established by the maintained compatibility registry", evidence: EVIDENCE[kernel], version: KernelVersions[kernel] };
+  const manifest = KernelCapabilityManifest[kernel];
+  const base = { kernel, protocol: normalized || null, evidence: EVIDENCE[kernel], version: KernelVersions[kernel] };
+
+  if (!normalized) return { ...base, status: CompatibilityStatus.UNKNOWN, reason: "node protocol is missing" };
+  if (manifest.unsupported.includes(normalized)) {
+    return { ...base, status: CompatibilityStatus.UNSUPPORTED, reason: "upstream kernel does not expose this outbound protocol" };
+  }
+  if (manifest.protocols.includes(normalized)) {
+    return { ...base, status: CompatibilityStatus.SUPPORTED, reason: "verified in the maintained upstream capability manifest" };
+  }
+  return { ...base, status: CompatibilityStatus.UNKNOWN, reason: "not established by the maintained compatibility manifest" };
 }
 
 export function validateUnifiedCompatibility(config, kernel = config && config.kernel) {
