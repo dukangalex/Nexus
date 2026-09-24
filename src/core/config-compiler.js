@@ -17,7 +17,12 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   const compatibility = validateUnifiedCompatibility(config, kernel);
   if (!compatibility.ok) {
     const ids = compatibility.unknown.concat(compatibility.unsupported).map((item) => item.id || "unknown");
-    throw new Error("configuration is not safely compilable for " + kernel + ": " + ids.join(", "));
+    const constraintIds = compatibility.constraintErrors.map((item) => item.code);
+    const details = ids.concat(constraintIds);
+    throw new Error(
+      "configuration is not safely compilable for " + kernel +
+      (details.length ? ": " + details.join(", ") : "")
+    );
   }
 
   const compiled = adapter.compileConfig(config);
@@ -30,6 +35,7 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     kernel,
     status: "compiled",
     config: compiled,
-    validation
+    validation,
+    compatibility
   };
 }
