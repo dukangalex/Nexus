@@ -13,13 +13,23 @@ function compileNode(node) {
   const auth = source.auth || source;
   if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
   if (auth.username && type === "http") output.username = auth.username;
-  if (auth.password && ["http","trojan","shadowsocks","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
+  if (auth.password && ["http","trojan","shadowsocks","hysteria","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
   if (source.tls) {
     output.tls = { enabled: Boolean(source.tls.enabled) };
     if (source.tls.serverName) output.tls.server_name = source.tls.serverName;
+    if (source.tls.minVersion) output.tls.min_version = source.tls.minVersion;
+    if (source.tls.maxVersion) output.tls.max_version = source.tls.maxVersion;
     if (source.tls.alpn?.length) output.tls.alpn = [...source.tls.alpn];
     if (source.tls.insecure) output.tls.insecure = true;
     if (source.tls.fingerprint) output.tls.utls = { enabled: true, fingerprint: source.tls.fingerprint };
+    if (source.tls.ech) output.tls.ech = clone(source.tls.ech);
+    if (source.tls.reality?.enabled) {
+      output.tls.reality = {
+        enabled: true,
+        public_key: source.tls.reality.publicKey,
+        short_id: source.tls.reality.shortId
+      };
+    }
   }
   if (source.transport?.type) {
     output.transport = ["ws","http","h2","grpc","xhttp"].includes(source.transport.type) ? { type: source.transport.type } : clone(source.transport.raw || { type: source.transport.type });
