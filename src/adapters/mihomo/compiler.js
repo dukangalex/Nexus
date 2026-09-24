@@ -1,52 +1,52 @@
 import { validateChain } from "../../core/chain.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
-
 function requireProxy(config, id) {
   const proxy = (config.proxies || []).find((p) => p && p.name === id);
   if (!proxy) throw new Error("Mihomo proxy not found: " + id);
   return clone(proxy);
 }
-
 function compileNode(node) {
   const source = clone(node) || {};
   const type = String(source.protocol || source.type || "").toLowerCase();
-  const output = {
-    name: source.name || source.id,
-    type,
-    server: source.endpoint?.server || source.server || source.address,
-    port: Number(source.endpoint?.port || source.port || source.server_port)
-  };
-  if (source.auth?.uuid && ["vless", "vmess"].includes(type)) output.uuid = source.auth.uuid;
-  if (source.auth?.username) output.username = source.auth.username;
-  if (source.auth?.password) output.password = source.auth.password;
+  const output = { name: source.name || source.id, type, server: source.endpoint?.server || source.server || source.address, port: Number(source.endpoint?.port || source.port || source.server_port) };
+  const auth = source.auth || {};
+  if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
+  if (auth.username) output.username = auth.username;
+  if (auth.password) output.password = auth.password;
+  if (source.method !== undefined) output.cipher = clone(source.method);
+  if (source.cipher !== undefined) output.cipher = clone(source.cipher);
   if (source.tls) {
     output.tls = Boolean(source.tls.enabled);
-    if (source.tls.serverName) output.sni = source.tls.serverName;
+    if (source.tls.serverName) output.servername = source.tls.serverName;
     if (source.tls.insecure) output["skip-cert-verify"] = true;
     if (source.tls.alpn?.length) output.alpn = [...source.tls.alpn];
     if (source.tls.fingerprint) output["client-fingerprint"] = source.tls.fingerprint;
+    if (source.tls.reality?.enabled) output["reality-opts"] = { "public-key": source.tls.reality.publicKey, "short-id": source.tls.reality.shortId };
   }
-  if (source.transport?.type === "ws") {
-    output.network = "ws";
-    output["ws-opts"] = { path: source.transport.path || "/" };
-    if (source.transport.headers) output["ws-opts"].headers = clone(source.transport.headers);
-  } else if (source.transport?.type === "grpc") {
-    output.network = "grpc";
-    output["grpc-opts"] = { "grpc-service-name": source.transport.serviceName || "" };
+  if (source.transport?.type) {
+    output.network = source.transport.type;
+    if (source.transport.type === "ws") {
+      output["ws-opts"] = { path: source.transport.path || "/" };
+      if (source.transport.headers) output["ws-opts"].headers = clone(source.transport.headers);
+    } else if (source.transport.type === "grpc") {
+      output["grpc-opts"] = { "grpc-service-name": source.transport.serviceName || "" };
+    } else if (source.transport.type === "http" || source.transport.type === "h2") {
+      output["http-opts"] = {};
+      if (source.transport.path) output["http-opts"].path = source.transport.path;
+      if (source.transport.headers) output["http-opts"].headers = clone(source.transport.headers);
+    } else if (source.transport.type === "xhttp") output["xhttp-opts"] = clone(source.transport.raw || {});
   }
-  if (!output.name || !output.type || !output.server || !Number.isFinite(output.port)) {
-    throw new Error("Mihomo node requires name, type, server and port: " + (source.id || "unknown"));
-  }
-  if (source.udp !== undefined) output.udp = Boolean(source.udp);
+  if (!output.name || !output.type || !output.server || !Number.isFinite(output.port)) throw new Error("Mihomo node requires name, type, server and port: " + (source.id || "unknown"));
+  if (source.udp !== undefined && source.udp !== null) output.udp = Boolean(source.udp);
   if (source.flow !== undefined) output.flow = clone(source.flow);
-  if (source.auth?.flow !== undefined) output.flow = clone(source.auth.flow);
-  if (source.auth?.alterId !== undefined) output.alterId = clone(source.auth.alterId);
-  if (source.method !== undefined) output.cipher = clone(source.method);
-  if (source.cipher !== undefined) output.cipher = clone(source.cipher);
+  if (auth.flow !== undefined) output.flow = clone(auth.flow);
+  if (auth.alterId !== undefined && auth.alterId !== null) output.alterId = clone(auth.alterId);
+  if (source.packet_encoding !== undefined) output["packet-encoding"] = clone(source.packet_encoding);
+  for (const key of ["up","down","ports","hop-interval","bbr-profile","obfs","obfs-password","congestion-control","udp-relay-mode","udp-over-stream","zero-rtt-handshake","heartbeat","idle-session-check-interval","idle-session-timeout","min-idle-session","client-metadata","private-key","private_key","peers","interface-name","ip-version"]) if (source[key] !== undefined) output[key] = clone(source[key]);
+  if (source.privateKey !== undefined && output["private-key"] === undefined) output["private-key"] = clone(source.privateKey);
   return output;
 }
-
 export function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
@@ -54,7 +54,6 @@ export function compileMihomoConfig(config) {
   if (config.routing && Object.keys(config.routing).length) output.rules = clone(config.routing.rules || []);
   return output;
 }
-
 export function compileMihomoChain(config, chain) {
   const validation = validateChain(chain.mode, chain.hops);
   if (!validation.ok) throw new Error(validation.error);
