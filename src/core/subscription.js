@@ -72,25 +72,30 @@ function parseShareLinks(text) {
   return matches.map((link) => parseShareLink(link));
 }
 
-export function parseSubscription(input, { maxNodes = null } = {}) {
+export function parseSubscriptionDocument(input) {
   if (typeof input !== "string" || !input.trim()) {
     throw new TypeError("subscription input must be non-empty text");
   }
 
   const text = input.trim();
-  let nodes = [];
-
   if (SHARE_LINK_RE.test(text)) {
     SHARE_LINK_RE.lastIndex = 0;
-    nodes = parseShareLinks(text);
+    return { kind: "share-links", value: parseShareLinks(text) };
   }
 
-  if (!nodes.length) {
-    let parsed = parseStructured(text);
-    if (parsed === null) parsed = parseStructured(decodeBase64(text));
-    if (parsed === null) throw new Error("unsupported subscription format");
-    nodes = extractNodes(parsed);
-  }
+  let parsed = parseStructured(text);
+  if (parsed !== null) return { kind: "structured", value: parsed };
 
+  parsed = parseStructured(decodeBase64(text));
+  if (parsed !== null) return { kind: "base64", value: parsed };
+
+  throw new Error("unsupported subscription format");
+}
+
+export function parseSubscription(input, { maxNodes = null } = {}) {
+  const document = parseSubscriptionDocument(input);
+  const nodes = document.kind === "share-links"
+    ? document.value
+    : extractNodes(document.value);
   return normalizeNodeConfig(nodes, maxNodes);
 }
