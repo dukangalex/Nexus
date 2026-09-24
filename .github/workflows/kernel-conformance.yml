@@ -1,0 +1,42 @@
+name: kernel-conformance
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Node dependencies
+        run: npm install --no-audit --no-fund
+      - name: Download Mihomo v1.19.31
+        run: |
+          curl -fsSL -o /tmp/mihomo.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-linux-amd64-v1-v1.19.31.gz
+          gunzip -c /tmp/mihomo.gz > /tmp/mihomo
+          chmod +x /tmp/mihomo
+      - name: Download sing-box v1.14.1
+        run: |
+          curl -fsSL -o /tmp/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v1.14.1/sing-box-1.14.1-linux-amd64.tar.gz
+          tar -xzf /tmp/sing-box.tar.gz -C /tmp
+          mv /tmp/sing-box-1.14.1-linux-amd64/sing-box /tmp/sing-box
+          chmod +x /tmp/sing-box
+      - name: Download Xray-core v26.9.8
+        run: |
+          curl -fsSL -o /tmp/xray.zip https://github.com/XTLS/Xray-core/releases/download/v26.9.8/Xray-linux-64.zip
+          unzip -o /tmp/xray.zip xray -d /tmp/xray-bin
+          chmod +x /tmp/xray-bin/xray
+      - name: Verify kernel versions
+        run: |
+          /tmp/mihomo -v
+          /tmp/sing-box version
+          /tmp/xray-bin/xray version
+      - name: Run Nexus runtime conformance
+        env:
+          NEXUS_MIHOMO_BIN: /tmp/mihomo
+          NEXUS_SING_BOX_BIN: /tmp/sing-box
+          NEXUS_XRAY_BIN: /tmp/xray-bin/xray
+        run: npm run kernel:conformance -- --require-binaries
