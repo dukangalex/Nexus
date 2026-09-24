@@ -1,0 +1,1 @@
+export const Kernels=Object.freeze({MIHOMO:"mihomo",SING_BOX:"sing-box",XRAY:"xray"}); export const ChainModes=Object.freeze({NODE_NODE:"node->node",NODE_SUB:"node->subscription",SUB_NODE:"subscription->node",SUB_SUB:"subscription->subscription"}); export function result(ok,data={},error=null){return {ok,data,error};}
