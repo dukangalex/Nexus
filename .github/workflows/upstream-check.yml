@@ -1,0 +1,36 @@
+name: upstream-check
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check upstream stable baselines
+        id: upstream
+        continue-on-error: true
+        run: node scripts/check-upstream.mjs
+      - name: Open or update drift issue
+        if: steps.upstream.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream kernel baseline drift detected"
+          body="The scheduled Nexus upstream check detected a changed stable release. Review upstream release notes/schema/protocol changes before updating the registry and adapters."
+          existing="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number' | head -n 1)"
+          if [ -z "$existing" ]; then
+            gh issue create --title "$title" --body "$body"
+          else
+            gh issue comment "$existing" --body "$body"
+          fi
