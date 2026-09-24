@@ -64,6 +64,12 @@ function validateXrayOutbound(outbound, index, errors) {
   if (["trojan","shadowsocks"].includes(outbound.protocol) && !hasText(settings.password)) push(errors, label + " requires settings.password");
   if (outbound.protocol === "shadowsocks" && !hasText(settings.method)) push(errors, label + " requires settings.method");
   if (outbound.protocol === "hysteria" && settings.version !== 2) push(errors, label + " Hysteria requires version 2");
+  if (outbound.streamSettings?.security === "reality") {
+    const reality = nonEmptyObject(outbound.streamSettings.realitySettings) ? outbound.streamSettings.realitySettings : {};
+    if (!hasText(reality.password)) push(errors, label + " Reality requires password (client public key)");
+    if (!hasText(reality.fingerprint)) push(errors, label + " Reality requires fingerprint");
+    if (reality.shortId !== undefined && !/^[0-9a-fA-F]{0,16}$/.test(String(reality.shortId)) || (reality.shortId !== undefined && String(reality.shortId).length % 2 !== 0)) push(errors, label + " Reality shortId must be an even-length hexadecimal string");
+  }
 }
 
 export function validateCompiledConfig(config, kernel) {
