@@ -20,7 +20,7 @@ export function validateChain(mode, hops) {
     ids.push(id);
   }
 
-  const kinds = hops.map((hop) => hop.kind || "node");
+  const kinds = hops.map((hop) => hop && hop.kind ? hop.kind : "node");
   const expected = {
     [ChainModes.NODE_NODE]: ["node", "node"],
     [ChainModes.NODE_SUB]: ["node", "subscription"],
@@ -28,8 +28,8 @@ export function validateChain(mode, hops) {
     [ChainModes.SUB_SUB]: ["subscription", "subscription"]
   }[mode];
 
-  if (hops.length === 2 && expected && (kinds[0] !== expected[0] || kinds[1] !== expected[1])) {
-    return result(false, {}, "chain hop kinds do not match mode");
+  if (expected && (kinds[0] !== expected[0] || kinds[kinds.length - 1] !== expected[1])) {
+    return result(false, {}, "chain endpoint kinds do not match mode");
   }
 
   return result(true, {
