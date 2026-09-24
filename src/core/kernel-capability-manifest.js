@@ -8,7 +8,7 @@ export const KernelCapabilityManifest = Object.freeze({
     protocols: Object.freeze([
       NodeProtocols.HTTP, NodeProtocols.SOCKS, NodeProtocols.SHADOWSOCKS,
       NodeProtocols.VMESS, NodeProtocols.VLESS, NodeProtocols.TROJAN,
-      NodeProtocols.WIREGUARD, NodeProtocols.TUIC, NodeProtocols.HYSTERIA2,
+      NodeProtocols.HYSTERIA, NodeProtocols.WIREGUARD, NodeProtocols.TUIC, NodeProtocols.HYSTERIA2,
       NodeProtocols.ANYTLS
     ]),
     unsupported: Object.freeze([])
@@ -17,7 +17,7 @@ export const KernelCapabilityManifest = Object.freeze({
     protocols: Object.freeze([
       NodeProtocols.HTTP, NodeProtocols.SOCKS, NodeProtocols.SHADOWSOCKS,
       NodeProtocols.VMESS, NodeProtocols.VLESS, NodeProtocols.TROJAN,
-      NodeProtocols.WIREGUARD, NodeProtocols.HYSTERIA, NodeProtocols.HYSTERIA2,
+      NodeProtocols.HYSTERIA, NodeProtocols.HYSTERIA2,
       NodeProtocols.TUIC, NodeProtocols.ANYTLS
     ]),
     unsupported: Object.freeze([])
