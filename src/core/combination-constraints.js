@@ -8,7 +8,7 @@ function issue(severity, code, message, kernel, evidence) {
 
 const EVIDENCE = Object.freeze({
   mihomo: "https://wiki.metacubex.one/en/config/proxies/anytls/",
-  "sing-box": "https://sing-box.sagernet.org/configuration/outbound/",
+  "sing-box": "https://sing-box.sagernet.org/configuration/shared/tls/",
   xray: "https://xtls.github.io/en/config/transport/"
 });
 
@@ -26,7 +26,7 @@ export function validateNodeCombination(kernel, node = {}) {
     issues.push(issue(ConstraintSeverity.ERROR, "MIHOMO_ANYTLS_REALITY_UNSUPPORTED", "Mihomo does not support AnyTLS with Reality.", kernel, evidence));
   }
 
-  if (kernel === Kernels.XRAY && protocol === NodeProtocols.HYSTERIA) {
+  if (kernel === Kernels.SING_BOX && realityEnabled) {\n    issues.push(issue(ConstraintSeverity.ERROR, "SING_BOX_REALITY_UNSUPPORTED", "The current sing-box TLS schema does not support Reality.", kernel, evidence));\n  }\n\n  if (kernel === Kernels.XRAY && protocol === NodeProtocols.HYSTERIA) {
     if (node.version !== undefined && Number(node.version) !== 2) {
       issues.push(issue(ConstraintSeverity.ERROR, "XRAY_HYSTERIA_VERSION", "Xray Hysteria outbound requires version 2.", kernel, "https://xtls.github.io/en/config/outbounds/hysteria.html"));
     }
