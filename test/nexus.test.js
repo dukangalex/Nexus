@@ -1,3 +1,4 @@
+import { normalizeNode } from "../src/core/model.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { sniff } from "../src/core/sniffer.js";
