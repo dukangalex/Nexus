@@ -26,16 +26,12 @@ export function validateNodeCombination(kernel, node = {}) {
     issues.push(issue(ConstraintSeverity.ERROR, "MIHOMO_ANYTLS_REALITY_UNSUPPORTED", "Mihomo does not support AnyTLS with Reality.", kernel, evidence));
   }
 
-  if (kernel === Kernels.SING_BOX && realityEnabled) {
-    issues.push(issue(ConstraintSeverity.ERROR, "SING_BOX_REALITY_UNSUPPORTED", "The current sing-box TLS schema does not support Reality.", kernel, evidence));
-  }
-
   if (kernel === Kernels.XRAY && protocol === NodeProtocols.HYSTERIA) {
     if (node.version !== undefined && Number(node.version) !== 2) {
       issues.push(issue(ConstraintSeverity.ERROR, "XRAY_HYSTERIA_VERSION", "Xray Hysteria outbound requires version 2.", kernel, "https://xtls.github.io/en/config/outbounds/hysteria.html"));
     }
     if (realityEnabled) {
-      issues.push(issue(ConstraintSeverity.ERROR, "XRAY_HYSTERIA_REALITY_UNSUPPORTED", "Xray Hysteria cannot use REALITY transport security.", kernel, evidence));
+      issues.push(issue(ConstraintSeverity.ERROR, "XRAY_HYSTERIA_REALITY_UNSUPPORTED", "Xray Hysteria uses its Hysteria QUIC transport and cannot be combined with Reality security.", kernel, "https://xtls.github.io/en/config/transports/hysteria.html"));
     }
     if (transportType && transportType !== "hysteria") {
       issues.push(issue(ConstraintSeverity.WARNING, "XRAY_HYSTERIA_NON_NATIVE_TRANSPORT", "Xray documents that Hysteria with a non-Hysteria transport cannot proxy UDP and is not recommended.", kernel, "https://xtls.github.io/en/config/outbounds/hysteria.html"));
@@ -43,7 +39,7 @@ export function validateNodeCombination(kernel, node = {}) {
   }
 
   if (kernel === Kernels.XRAY && realityEnabled && !["", "raw", "xhttp", "grpc"].includes(transportType)) {
-    issues.push(issue(ConstraintSeverity.ERROR, "XRAY_REALITY_TRANSPORT", "Xray REALITY is only valid with RAW, XHTTP, or gRPC transport.", kernel, "https://xtls.github.io/en/config/transport.html"));
+    issues.push(issue(ConstraintSeverity.ERROR, "XRAY_REALITY_TRANSPORT", "Xray Reality is documented for RAW, XHTTP, or gRPC transport.", kernel, "https://xtls.github.io/en/config/transport.html"));
   }
 
   return issues;
