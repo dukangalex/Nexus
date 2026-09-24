@@ -1,6 +1,7 @@
 import { adapterFor } from "../adapters/index.js";
 import { AdapterCapabilities, hasAdapterCapability } from "../adapters/contract.js";
 import { validateUnifiedCompatibility } from "./compatibility.js";
+import { validateCompiledConfig } from "./compiled-config-validation.js";
 
 export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   if (!config || typeof config !== "object") {
@@ -19,9 +20,16 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     throw new Error("configuration is not safely compilable for " + kernel + ": " + ids.join(", "));
   }
 
+  const compiled = adapter.compileConfig(config);
+  const validation = validateCompiledConfig(compiled, kernel);
+  if (!validation.ok) {
+    throw new Error("compiled configuration failed structural validation for " + kernel + ": " + validation.errors.join("; "));
+  }
+
   return {
     kernel,
     status: "compiled",
-    config: adapter.compileConfig(config)
+    config: compiled,
+    validation
   };
 }
