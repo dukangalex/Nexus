@@ -2,3 +2,4 @@ export * from "./core/model.js"; export * from "./core/sniffer.js"; export * fro
  export * from "./platform/index.js";
 export * from "./core/subscription.js";
 export * from "./core/region.js";
+export * from "./core/import-pipeline.js";
