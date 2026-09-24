@@ -65,7 +65,7 @@ function compileNode(node) {
     if (source.tls.reality?.enabled) {
       output.streamSettings.realitySettings = {
         serverName: source.tls.serverName || "",
-        fingerprint: source.tls.fingerprint || "chrome",
+        fingerprint: source.tls.fingerprint,
         password: source.tls.reality.publicKey,
         shortId: source.tls.reality.shortId,
         spiderX: source.tls.reality.spiderX
