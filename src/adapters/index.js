@@ -1,0 +1,1 @@
+import {Kernels} from "../core/model.js"; export const adapters={ [Kernels.MIHOMO]:{chainMechanism:"dialer-proxy"}, [Kernels.SING_BOX]:{chainMechanism:"detour"}, [Kernels.XRAY]:{chainMechanism:"streamSettings.sockopt.dialerProxy"} }; export function adapterFor(kernel){return adapters[kernel]||null;}
