@@ -1,4 +1,5 @@
 import { Kernels } from "./model.js";
+import { getKernelUpstream } from "./kernel-registry.js";
 
 function nonEmptyObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -42,11 +43,14 @@ function validateSingBoxOutbound(outbound, index, errors) {
   if (!SING_BOX_TYPES.has(outbound.type)) return;
   validateEndpoint(outbound, label, errors);
   if (["vmess","vless","tuic"].includes(outbound.type) && !hasText(outbound.uuid)) push(errors, label + " requires uuid");
-  if (["trojan","shadowsocks","hysteria","hysteria2","tuic","anytls"].includes(outbound.type) && !hasText(outbound.password)) push(errors, label + " requires password");
+  if (["trojan","shadowsocks","hysteria2","tuic","anytls"].includes(outbound.type) && !hasText(outbound.password)) push(errors, label + " requires password");
+  if (outbound.type === "hysteria" && !hasText(outbound.auth) && !hasText(outbound.auth_str)) push(errors, label + " requires auth or auth_str");
+  if (["hysteria","hysteria2","tuic"].includes(outbound.type) && !nonEmptyObject(outbound.tls)) push(errors, label + " requires TLS configuration");
   if (outbound.type === "shadowsocks" && !hasText(outbound.method)) push(errors, label + " requires method");
   if (outbound.tls?.reality?.enabled) {
     if (!hasText(outbound.tls.reality.public_key)) push(errors, label + " Reality requires public_key");
     if (outbound.tls.reality.short_id === undefined) push(errors, label + " Reality requires short_id");
+    else if (!/^[0-9a-fA-F]{0,8}$/.test(String(outbound.tls.reality.short_id))) push(errors, label + " Reality short_id must be 0-8 hexadecimal digits");
   }
 }
 
@@ -75,8 +79,10 @@ function validateXrayOutbound(outbound, index, errors) {
   }
 }
 
-export function validateCompiledConfig(config, kernel) {
+export function validateCompiledConfig(config, kernel, expectedVersion = getKernelUpstream(kernel).stable) {
   const errors = [];
+  const upstream = getKernelUpstream(kernel);
+  if (expectedVersion !== upstream.stable) errors.push("schema validator is pinned to " + upstream.name + " " + upstream.stable + "; requested " + expectedVersion);
 
   if (!nonEmptyObject(config)) {
     errors.push("compiled configuration must be an object");
@@ -93,5 +99,5 @@ export function validateCompiledConfig(config, kernel) {
     errors.push("unsupported kernel: " + kernel);
   }
 
-  return { ok: errors.length === 0, errors };
+  return { ok: errors.length === 0, errors, kernel, version: expectedVersion };
 }
