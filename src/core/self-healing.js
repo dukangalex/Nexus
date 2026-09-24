@@ -1,0 +1,1 @@
+export function chooseHealthy(nodes=[]){return nodes.filter(n=>Number(n.failures||0)<3).sort((a,b)=>(a.latencyMs||9999)-(b.latencyMs||9999))[0]||null;} export function shouldFailover(failures){return Number(failures)>=3;}
