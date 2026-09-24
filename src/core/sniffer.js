@@ -1,1 +1,41 @@
-const has=(s,re)=>re.test(s); export function sniff(input){const s=typeof input==="string"?input.trim():JSON.stringify(input); if(has(s,/^(vmess|vless|trojan|ss|hysteria2|hy2):\\/\\//i)) return {kind:"share-link",kernel:"sing-box"}; if(typeof input==="object"){if(input.inbounds&&input.outbounds&&input.route) return {kind:"sing-box-json",kernel:"sing-box"};if(input.inbounds&&input.outbounds&&input.routing) return {kind:"v2ray-json",kernel:"xray"};} if(/(^|\\n)proxies:\\s*\\n/i.test(s)&&/(^|\\n)rules:\\s*\\n/i.test(s)) return {kind:"clash-yaml",kernel:"mihomo"}; return {kind:"unknown",kernel:null};}
+const SHARE_LINK_RE = /^(vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\//i;
+
+function textOf(input) {
+  return typeof input === "string" ? input.trim() : "";
+}
+
+function looksLikeYaml(text, key) {
+  return new RegExp("(^|\\n)\\s*" + key + "\\s*:", "i").test(text);
+}
+
+export function sniff(input) {
+  const text = textOf(input);
+
+  if (SHARE_LINK_RE.test(text)) {
+    return {
+      kind: "share-link",
+      kernel: "sing-box",
+      candidates: ["sing-box", "xray"],
+      confidence: "protocol-link"
+    };
+  }
+
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const hasInbounds = Array.isArray(input.inbounds);
+    const hasOutbounds = Array.isArray(input.outbounds);
+
+    if (hasInbounds && hasOutbounds && input.route && typeof input.route === "object") {
+      return { kind: "sing-box-json", kernel: "sing-box", candidates: ["sing-box"], confidence: "schema" };
+    }
+
+    if (hasInbounds && hasOutbounds && input.routing && typeof input.routing === "object") {
+      return { kind: "xray-json", kernel: "xray", candidates: ["xray"], confidence: "schema" };
+    }
+  }
+
+  if (text && looksLikeYaml(text, "proxies") && looksLikeYaml(text, "rules")) {
+    return { kind: "clash-yaml", kernel: "mihomo", candidates: ["mihomo"], confidence: "schema" };
+  }
+
+  return { kind: "unknown", kernel: null, candidates: [], confidence: "none" };
+}
