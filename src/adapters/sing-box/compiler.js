@@ -1,45 +1,41 @@
 import { validateChain } from "../../core/chain.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
-
 function requireOutbound(config, id) {
   const outbound = (config.outbounds || []).find((o) => o && o.tag === id);
   if (!outbound) throw new Error("sing-box outbound not found: " + id);
   return clone(outbound);
 }
-
 function compileNode(node) {
   const source = clone(node) || {};
   const type = String(source.protocol || source.type || "").toLowerCase();
   const output = { type, tag: source.name || source.id, server: source.endpoint?.server || source.server || source.address, server_port: Number(source.endpoint?.port || source.server_port || source.port) };
-  if (source.auth?.uuid && (type === "vless" || type === "vmess")) {
-    output.uuid = source.auth.uuid;
-  } else if (source.auth?.username && type === "http") {
-    output.username = source.auth.username;
-    if (source.auth.password) output.password = source.auth.password;
-  } else if (source.auth?.password && ["trojan", "shadowsocks", "hysteria2", "tuic", "anytls"].includes(type)) {
-    output.password = source.auth.password;
-  }
+  const auth = source.auth || {};
+  if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
+  if (auth.username && type === "http") output.username = auth.username;
+  if (auth.password && ["http","trojan","shadowsocks","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
   if (source.tls) {
-    output.tls = { enabled: Boolean(source.tls.enabled), server_name: source.tls.serverName || undefined };
+    output.tls = { enabled: Boolean(source.tls.enabled) };
+    if (source.tls.serverName) output.tls.server_name = source.tls.serverName;
     if (source.tls.alpn?.length) output.tls.alpn = [...source.tls.alpn];
     if (source.tls.insecure) output.tls.insecure = true;
     if (source.tls.fingerprint) output.tls.utls = { enabled: true, fingerprint: source.tls.fingerprint };
   }
-  if (source.transport?.type === "ws") {
-    output.transport = { type: "ws", path: source.transport.path || "/" };
+  if (source.transport?.type) {
+    output.transport = ["ws","http","h2","grpc","xhttp"].includes(source.transport.type) ? { type: source.transport.type } : clone(source.transport.raw || { type: source.transport.type });
+    if (source.transport.path) output.transport.path = source.transport.path;
+    if (source.transport.serviceName && source.transport.type === "grpc") output.transport.service_name = source.transport.serviceName;
     if (source.transport.headers) output.transport.headers = clone(source.transport.headers);
-  } else if (source.transport?.type === "grpc") {
-    output.transport = { type: "grpc", service_name: source.transport.serviceName || "" };
   }
   if (!output.tag || !output.type || !output.server || !Number.isFinite(output.server_port)) throw new Error("sing-box node requires tag, type, server and server_port: " + (source.id || "unknown"));
-  if (source.auth?.flow !== undefined) output.flow = clone(source.auth.flow);
-  if (source.auth?.alterId !== undefined) output.alter_id = clone(source.auth.alterId);
-  if (source.udp !== undefined) output.network = source.udp ? "udp" : output.network;
-  for (const key of ["uuid", "password", "username", "network", "security", "alter_id", "flow", "packet_encoding", "multiplex"]) if (source[key] !== undefined && output[key] === undefined) output[key] = clone(source[key]);
+  if (auth.flow !== undefined) output.flow = clone(auth.flow);
+  if (auth.alterId !== undefined && auth.alterId !== null) output.alter_id = clone(auth.alterId);
+  if (source.udp !== undefined && source.udp !== null) output.network = source.udp ? "udp" : output.network;
+  for (const key of ["security","packet_encoding","multiplex","congestion_control","udp_relay_mode","udp_over_stream","zero_rtt_handshake","heartbeat","up_mbps","down_mbps","hop_interval","hop_interval_max","bbr_profile","brutal_debug","disable_chrome_parrot","server_ports","obfs","realm","private_key","privateKey","peers","local_address","mtu"]) if (source[key] !== undefined) output[key] = clone(source[key]);
+  if (source.privateKey !== undefined && output.private_key === undefined) output.private_key = clone(source.privateKey);
+  if (source.encryption !== undefined) output.encryption = clone(source.encryption);
   return output;
 }
-
 export function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
@@ -47,7 +43,6 @@ export function compileSingBoxConfig(config) {
   if (config.routing && Object.keys(config.routing).length) output.route = clone(config.routing);
   return output;
 }
-
 export function compileSingBoxChain(config, chain) {
   const validation = validateChain(chain.mode, chain.hops);
   if (!validation.ok) throw new Error(validation.error);
