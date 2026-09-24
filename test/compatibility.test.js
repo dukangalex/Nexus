@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Kernels } from "../src/core/model.js";
+import { KernelCapabilityManifest } from "../src/core/kernel-capability-manifest.js";
 import { CompatibilityStatus, KernelVersions, protocolCompatibility, validateUnifiedCompatibility, buildCompatibilityMatrix } from "../src/core/compatibility.js";
 
 test("recognizes documented common protocols", () => {
@@ -13,6 +14,14 @@ test("tracks stable kernel baselines", () => {
   assert.equal(KernelVersions[Kernels.MIHOMO].stable, "1.19.31");
   assert.equal(KernelVersions[Kernels.SING_BOX].stable, "1.14.1");
   assert.equal(KernelVersions[Kernels.XRAY].stable, "26.9.8");
+});
+
+test("keeps protocol claims in a dedicated manifest", () => {
+  for (const kernel of Object.values(Kernels)) {
+    assert.ok(Array.isArray(KernelCapabilityManifest[kernel].protocols));
+    assert.ok(Array.isArray(KernelCapabilityManifest[kernel].unsupported));
+  }
+  assert.ok(KernelCapabilityManifest[Kernels.XRAY].unsupported.includes("hysteria2"));
 });
 
 test("does not claim Xray supports Hysteria2, TUIC or AnyTLS", () => {
