@@ -1,0 +1,1 @@
+export const dnsPolicy=Object.freeze({encrypted:true,preferFakeIp:true,sniffSni:true,ipv6LeakProtection:true}); export function buildDnsPolicy(overrides={}){return {...dnsPolicy,...overrides};}
