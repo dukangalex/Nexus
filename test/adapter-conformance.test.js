@@ -69,3 +69,51 @@ test("Xray VLESS Reality compiles using current realitySettings client fields", 
   assert.equal(reality.shortId, "01234567");
   assert.equal(result.validation.ok, true);
 });
+
+
+test("Xray Reality does not invent a missing fingerprint", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.XRAY,
+    nodes: [{
+      id: "x-reality-missing-fingerprint",
+      protocol: "vless",
+      server: "example.com",
+      port: 443,
+      uuid: "00000000-0000-0000-0000-000000000001",
+      tls: {
+        enabled: true,
+        serverName: "example.com",
+        reality: {
+          enabled: true,
+          publicKey: "test-public-key",
+          shortId: "01234567"
+        }
+      },
+      transport: { type: "grpc", serviceName: "proxy" }
+    }]
+  }), /Reality requires fingerprint/);
+});
+
+test("Mihomo Reality enables TLS even when tls.enabled is omitted", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{
+      id: "mihomo-reality",
+      protocol: "vless",
+      server: "example.com",
+      port: 443,
+      uuid: "00000000-0000-0000-0000-000000000001",
+      tls: {
+        serverName: "example.com",
+        fingerprint: "chrome",
+        reality: {
+          enabled: true,
+          publicKey: "test-public-key",
+          shortId: "01234567"
+        }
+      }
+    }]
+  });
+  assert.equal(result.config.proxies[0].tls, true);
+  assert.equal(result.validation.ok, true);
+});
