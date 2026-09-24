@@ -1,14 +1,12 @@
+import { normalizeNodes } from "./model.js";
+
 export function normalizeConfig(input) {
   if (typeof input === "string") {
     const value = input.trim();
     if (!value) throw new TypeError("configuration text is empty");
     return { source: "text", value };
   }
-
-  if (input && typeof input === "object") {
-    return { source: "object", value: structuredClone(input) };
-  }
-
+  if (input && typeof input === "object") return { source: "object", value: structuredClone(input) };
   throw new TypeError("configuration must be text or object");
 }
 
@@ -27,4 +25,8 @@ export function dedupeNodes(nodes, key = "id") {
     seen.add(value);
     return true;
   });
+}
+
+export function normalizeNodeConfig(nodes, max = 30) {
+  return limitNodes(dedupeNodes(normalizeNodes(nodes)), max);
 }
