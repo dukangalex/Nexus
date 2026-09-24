@@ -22,7 +22,56 @@ function compileNode(node) {
       if (server && Number.isFinite(port)) output.settings.vnext = [{ address: server, port, users: [{ id: user }] }];
     }
   }
-  if (source.streamSettings) output.streamSettings = clone(source.streamSettings);
+  if (source.auth?.uuid && (protocol === "vless" || protocol === "vmess")) {
+    output.settings.vnext = output.settings.vnext || [{
+      address: source.endpoint?.server || source.server || source.address,
+      port: Number(source.endpoint?.port || source.port || source.server_port),
+      users: [{ id: source.auth.uuid }]
+    }];
+  }
+  if (protocol === "trojan" && source.auth?.password) {
+    output.settings.servers = [{
+      address: source.endpoint?.server || source.server || source.address,
+      port: Number(source.endpoint?.port || source.port || source.server_port),
+      password: source.auth.password
+    }];
+  }
+  if (source.tls) {
+    output.streamSettings = output.streamSettings || {};
+    output.streamSettings.security = source.tls.reality?.enabled ? "reality" : (source.tls.enabled ? "tls" : "none");
+    if (source.tls.serverName) {
+      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
+      output.streamSettings.tlsSettings.serverName = source.tls.serverName;
+    }
+    if (source.tls.alpn?.length) {
+      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
+      output.streamSettings.tlsSettings.alpn = [...source.tls.alpn];
+    }
+    if (source.tls.fingerprint) {
+      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
+      output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint;
+    }
+    if (source.tls.reality?.enabled) {
+      output.streamSettings.realitySettings = {
+        publicKey: source.tls.reality.publicKey,
+        shortId: source.tls.reality.shortId,
+        spiderX: source.tls.reality.spiderX
+      };
+    }
+  }
+  if (source.transport?.type) {
+    output.streamSettings = output.streamSettings || {};
+    output.streamSettings.network = source.transport.type;
+    if (source.transport.type === "ws") {
+      output.streamSettings.wsSettings = { path: source.transport.path || "/" };
+      if (source.transport.headers) output.streamSettings.wsSettings.headers = clone(source.transport.headers);
+    } else if (source.transport.type === "grpc") {
+      output.streamSettings.grpcSettings = { serviceName: source.transport.serviceName || "" };
+    }
+  }
+  if (source.streamSettings) {
+    output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
+  }
   return output;
 }
 
