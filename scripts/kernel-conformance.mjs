@@ -1,10 +1,19 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
 import yaml from "js-yaml";
 import { compileUnifiedConfig } from "../src/core/config-compiler.js";
 import { Kernels } from "../src/core/model.js";
+
+function realityPublicKey() {
+  const { publicKey } = generateKeyPairSync("x25519");
+  const der = publicKey.export({ type: "spki", format: "der" });
+  return der.subarray(der.length - 32).toString("base64url");
+}
+
+const REALITY_PUBLIC_KEY = realityPublicKey();
 
 const fixtures = {
   [Kernels.MIHOMO]: {
@@ -19,7 +28,7 @@ const fixtures = {
         enabled: true,
         serverName: "example.com",
         fingerprint: "chrome",
-        reality: { enabled: true, publicKey: "test-public-key", shortId: "01234567" }
+        reality: { enabled: true, publicKey: REALITY_PUBLIC_KEY, shortId: "01234567" }
       }
     }]
   },
@@ -98,8 +107,18 @@ try {
         : ["run", "-test", "-c", path];
 
     const result = await command(bin, args);
-    report.push({ kernel, status: result.code === 0 ? "passed" : "failed", exitCode: result.code, stdout: result.stdout.trim(), stderr: result.stderr.trim() });
-    if (result.code !== 0) throw new Error(kernel + " runtime validation failed");
+    const item = {
+      kernel,
+      status: result.code === 0 ? "passed" : "failed",
+      exitCode: result.code,
+      stdout: result.stdout.trim(),
+      stderr: result.stderr.trim()
+    };
+    report.push(item);
+    if (result.code !== 0) {
+      console.error(JSON.stringify(item, null, 2));
+      throw new Error(kernel + " runtime validation failed");
+    }
   }
 } finally {
   await rm(dir, { recursive: true, force: true });
