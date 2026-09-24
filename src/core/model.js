@@ -57,7 +57,7 @@ function normalizeAuth(source,protocol){
   };
 }
 
-function normalizeNode(input,index=0){
+function normalizeNodeInternal(input,index=0){
   if(!input||typeof input!=="object") return null;
   const source={...input};
   const protocol=text(source.protocol||source.type)?.toLowerCase()||null;
@@ -83,7 +83,7 @@ function normalizeNode(input,index=0){
   };
 }
 
-export function normalizeNode(input,index=0){return normalizeNode(input,index);}
+export function normalizeNode(input,index=0){return normalizeNodeInternal(input,index);}
 export function normalizeNodes(nodes){
   if(!Array.isArray(nodes))return [];
   const seen=new Set();
