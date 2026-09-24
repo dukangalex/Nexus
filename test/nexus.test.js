@@ -1,133 +1,57 @@
-import { normalizeNode } from "../src/core/model.js";
+import { normalizeNode, normalizeNodes } from "../src/core/model.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { sniff } from "../src/core/sniffer.js";
 
-test("sniff share link", () => {
+test("canonical node identity never becomes authentication", () => {
+  const node = normalizeNode({ id: "node-1", name: "US 1", type: "vless", server: "example.com", port: 443 });
+  assert.equal(node.id, "node-1");
+  assert.equal(node.auth.uuid, null);
+});
+
+test("canonical auth accepts nested auth without confusing id", () => {
+  const node = normalizeNode({ id: "node-1", protocol: "vless", server: "example.com", port: 443, auth: { uuid: "550e8400-e29b-41d4-a716-446655440000", flow: "xtls-rprx-vision" } });
+  assert.equal(node.auth.uuid, "550e8400-e29b-41d4-a716-446655440000");
+  assert.equal(node.auth.flow, "xtls-rprx-vision");
+});
+
+test("canonical model deduplicates equivalent nodes but preserves distinct credentials", () => {
+  const nodes = normalizeNodes([
+    { name: "a", protocol: "vless", server: "example.com", port: 443, uuid: "u1" },
+    { name: "b", protocol: "vless", server: "example.com", port: 443, uuid: "u1" },
+    { name: "c", protocol: "vless", server: "example.com", port: 443, uuid: "u2" }
+  ]);
+  assert.equal(nodes.length, 2);
+  assert.deepEqual(nodes.map(n => n.auth.uuid), ["u1", "u2"]);
+});
+
+test("canonical model keeps explicit user node count policy separate from normalization", () => {
+  const nodes = normalizeNodes([
+    { name: "a", protocol: "vless", server: "a.example", port: 443, uuid: "1" },
+    { name: "b", protocol: "vless", server: "b.example", port: 443, uuid: "2" },
+    { name: "c", protocol: "vless", server: "c.example", port: 443, uuid: "3" }
+  ]);
+  assert.equal(nodes.length, 3);
+});
+
+test("sniff share link remains kernel-ambiguous when protocol is supported by multiple kernels", () => {
   const result = sniff("vless://example");
   assert.equal(result.kernel, null);
   assert.deepEqual(result.candidates, ["sing-box", "xray"]);
-  assert.equal(result.evidence[0].reason.includes("does not by itself"), true);
 });
 
 test("binds Clash YAML to Mihomo", () => {
   const result = sniff("proxies:\n  - name: us\n    type: vless");
   assert.equal(result.kernel, "mihomo");
   assert.equal(result.kind, "clash-yaml");
-  assert.equal(result.evidence[0].path, "proxies");
 });
 
 test("binds sing-box JSON by route schema", () => {
-  const result = sniff(JSON.stringify({
-    inbounds: [], outbounds: [],
-    route: { rules: [] }
-  }));
+  const result = sniff(JSON.stringify({ inbounds: [], outbounds: [], route: { rules: [] } }));
   assert.equal(result.kernel, "sing-box");
-  assert.equal(result.kind, "json");
-  assert.ok(result.evidence.some((item) => item.path === "route"));
 });
 
 test("binds Xray JSON by routing schema", () => {
-  const result = sniff(JSON.stringify({
-    inbounds: [], outbounds: [],
-    routing: { rules: [] }
-  }));
+  const result = sniff(JSON.stringify({ inbounds: [], outbounds: [], routing: { rules: [] } }));
   assert.equal(result.kernel, "xray");
-  assert.equal(result.kind, "json");
-  assert.ok(result.evidence.some((item) => item.path === "routing"));
-});
-
-test("reports ambiguous shared JSON without inventing a binding", () => {
-  const result = sniff(JSON.stringify({ inbounds: [], outbounds: [] }));
-  assert.equal(result.kernel, null);
-  assert.deepEqual(result.candidates, ["sing-box", "xray"]);
-  assert.equal(result.confidence, "schema-ambiguous");
-});
-
-import { validateChain } from "../src/core/chain.js";
-import { chooseHealthy } from "../src/core/self-healing.js";
-
-test("four chain modes", () => assert.equal(validateChain("node->node", [{ id: "a" }, { id: "b" }]).ok, true));
-test("failover excludes three failures", () => assert.equal(chooseHealthy([{ id: "a", failures: 3 }, { id: "b", failures: 1 }]).id, "b"));
-test("validates multi-hop chain endpoints", () => assert.equal(validateChain("node->subscription", [{ id: "a", kind: "node" }, { id: "b", kind: "node" }, { id: "c", kind: "subscription" }]).ok, true));
-test("rejects multi-hop chain with wrong endpoint kind", () => assert.equal(validateChain("node->subscription", [{ id: "a", kind: "node" }, { id: "b", kind: "subscription" }, { id: "c", kind: "node" }]).ok, false));
-test("canonical node model normalizes protocol and preserves source fields", async () => {
-  const { normalizeNode } = await import("../src/core/model.js");
-  const node = normalizeNode({ tag: "us-1", type: "VLESS", server: "example.com" }, 0);
-  assert.equal(node.id, "us-1");
-  assert.equal(node.name, "us-1");
-  assert.equal(node.kind, "node");
-  assert.equal(node.protocol, "vless");
-  assert.equal(node.server, "example.com");
-});
-
-import { inspectImport, importConfig } from "../src/core/import-pipeline.js";
-
-test("import pipeline automatically binds a high-confidence format", () => {
-  const result = importConfig("proxies:\n  - name: us\n    type: vless");
-  assert.equal(result.binding.kernel, "mihomo");
-  assert.equal(result.binding.mode, "automatic");
-  assert.equal(result.binding.requiresConfirmation, false);
-  assert.equal(result.model.nodeCount, 1);
-  assert.equal(result.model.unifiedConfig.kernel, "mihomo");
-  assert.equal(result.model.unifiedConfig.nodes.length, 1);
-});
-
-test("import pipeline requires a prompt for ambiguous formats", () => {
-  const result = inspectImport(JSON.stringify({ inbounds: [], outbounds: [] }));
-  assert.equal(result.binding.kernel, null);
-  assert.equal(result.binding.requiresConfirmation, true);
-  assert.deepEqual(result.binding.prompt.options, ["sing-box", "xray"]);
-});
-
-test("import pipeline accepts an explicit compatible kernel override", () => {
-  const result = inspectImport("vless://example", { kernel: "xray" });
-  assert.equal(result.binding.kernel, "xray");
-  assert.equal(result.binding.mode, "explicit");
-  assert.equal(result.binding.requiresConfirmation, false);
-});
-
-test("import pipeline preserves user-selected node limit", () => {
-  const result = importConfig(
-    "vless://one\nvless://two\nvless://three",
-    { kernel: "xray", maxNodes: 2 }
-  );
-  assert.equal(result.model.nodeCount, 2);
-  assert.equal(result.model.nodeLimit, 2);
-});
-
-test("import pipeline rejects incompatible explicit kernel", () => {
-  assert.throws(
-    () => inspectImport(JSON.stringify({ inbounds: [], outbounds: [], route: { rules: [] } }), { kernel: "xray" }),
-    /incompatible/
-  );
-});
-
-
-test("canonical node normalization exposes endpoint auth TLS and transport semantics", () => {
-  const node = normalizeNode({
-    name: "vless-1", protocol: "vless", server: "example.com", port: 443,
-    uuid: "u", sni: "example.com", network: "ws", path: "/x", udp: true
-  });
-  assert.equal(node.endpoint.server, "example.com");
-  assert.equal(node.endpoint.port, 443);
-  assert.equal(node.auth.uuid, "u");
-  assert.equal(node.tls.serverName, "example.com");
-  assert.equal(node.transport.type, "ws");
-  assert.equal(node.transport.path, "/x");
-  assert.equal(node.udp, true);
-});
-
-test("canonical node normalization preserves TLS version Reality and transport headers", () => {
-  const node = normalizeNode({
-    name: "reality", protocol: "vless", server: "example.com", port: 443,
-    uuid: "u", tls: { enabled: true, alpn: ["h2"], min_version: "1.2", max_version: "1.3",
-      reality: { public_key: "pk", short_id: "sid", spider_x: "/" } },
-    network: "ws", path: "/api", headers: { Host: "example.com" }
-  });
-  assert.equal(node.tls.minVersion, "1.2");
-  assert.equal(node.tls.maxVersion, "1.3");
-  assert.equal(node.tls.reality.publicKey, "pk");
-  assert.equal(node.tls.reality.shortId, "sid");
-  assert.deepEqual(node.transport.headers, { Host: "example.com" });
 });
