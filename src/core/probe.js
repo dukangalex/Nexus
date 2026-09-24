@@ -1,0 +1,1 @@
+export class ProbeScheduler{constructor({intervalMs=30000,enabled=true}={}){this.intervalMs=intervalMs;this.enabled=enabled;this.timer=null;} start(fn){if(!this.enabled||this.timer)return;this.timer=setInterval(fn,this.intervalMs);} stop(){if(this.timer){clearInterval(this.timer);this.timer=null;}}}
