@@ -8,6 +8,55 @@ function looksLikeYaml(text, key) {
   return new RegExp("(^|\\n)\\s*" + key + "\\s*:", "i").test(text);
 }
 
+function looksLikeJson(text) {
+  if (!text || !/^[\\[{]/.test(text)) return false;
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object";
+  } catch {
+    return false;
+  }
+}
+
+function scoreSchema(input) {
+  const scores = { mihomo: 0, "sing-box": 0, xray: 0 };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return scores;
+
+  if (Array.isArray(input.proxies)) scores.mihomo += 100;
+  if (Array.isArray(input.proxy_groups)) scores.mihomo += 20;
+
+  if (Array.isArray(input.inbounds) && Array.isArray(input.outbounds)) {
+    scores["sing-box"] += 30;
+    scores.xray += 30;
+  }
+  if (input.route && typeof input.route === "object") scores["sing-box"] += 60;
+  if (input.dns && input.route && !input.routing) scores["sing-box"] += 10;
+
+  if (input.routing && typeof input.routing === "object") scores.xray += 60;
+  if (input.log && input.routing && !input.route) scores.xray += 10;
+
+  return scores;
+}
+
+function fromScores(scores, kind) {
+  let best = null;
+  let bestScore = 0;
+  const candidates = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
+  for (const kernel of candidates) {
+    if (scores[kernel] > bestScore) {
+      best = kernel;
+      bestScore = scores[kernel];
+    }
+  }
+  return {
+    kind,
+    kernel: best,
+    candidates: candidates.filter((kernel) => scores[kernel] > 0),
+    confidence: best ? "schema-scored" : "none",
+    score: bestScore
+  };
+}
+
 export function sniff(input) {
   const text = textOf(input);
 
@@ -21,30 +70,17 @@ export function sniff(input) {
   }
 
   if (input && typeof input === "object" && !Array.isArray(input)) {
-    const hasInbounds = Array.isArray(input.inbounds);
-    const hasOutbounds = Array.isArray(input.outbounds);
-
-    if (hasInbounds && hasOutbounds && input.routing && typeof input.routing === "object") {
-      return { kind: "xray-json", kernel: "xray", candidates: ["xray"], confidence: "schema" };
-    }
-
-    if (hasInbounds && hasOutbounds && input.route && typeof input.route === "object") {
-      return { kind: "sing-box-json", kernel: "sing-box", candidates: ["sing-box"], confidence: "schema" };
-    }
-
-    if (hasInbounds && hasOutbounds) {
-      return {
-        kind: "proxy-json-ambiguous",
-        kernel: null,
-        candidates: ["sing-box", "xray"],
-        confidence: "shared-schema"
-      };
-    }
+    const result = fromScores(scoreSchema(input), "structured");
+    if (result.kernel) return result;
   }
 
   if (text && looksLikeYaml(text, "proxies")) {
-    return { kind: "clash-yaml", kernel: "mihomo", candidates: ["mihomo"], confidence: "schema" };
+    return { kind: "clash-yaml", kernel: "mihomo", candidates: ["mihomo"], confidence: "schema", score: 100 };
   }
 
-  return { kind: "unknown", kernel: null, candidates: [], confidence: "none" };
+  if (text && looksLikeJson(text)) {
+    return fromScores(scoreSchema(JSON.parse(text)), "json");
+  }
+
+  return { kind: "unknown", kernel: null, candidates: [], confidence: "none", score: 0 };
 }
