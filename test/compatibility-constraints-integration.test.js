@@ -49,3 +49,31 @@ test("compiler preserves compatibility evidence for safe nodes", () => {
   assert.equal(result.compatibility.constraintErrors.length, 0);
   assert.equal(result.status, "compiled");
 });
+
+
+test("current sing-box Reality remains supported and compiles", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [{
+      id: "v-reality",
+      protocol: NodeProtocols.VLESS,
+      server: "example.com",
+      port: 443,
+      uuid: "00000000-0000-0000-0000-000000000001",
+      tls: {
+        enabled: true,
+        serverName: "example.com",
+        reality: {
+          enabled: true,
+          publicKey: "test-public-key",
+          shortId: "01234567"
+        }
+      }
+    }]
+  });
+
+  assert.equal(result.compatibility.ok, true);
+  assert.equal(result.validation.ok, true);
+  assert.equal(result.config.outbounds[0].tls.reality.enabled, true);
+  assert.equal(result.config.outbounds[0].tls.reality.public_key, "test-public-key");
+});
