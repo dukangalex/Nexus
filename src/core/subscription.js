@@ -1,6 +1,9 @@
 import yaml from "js-yaml";
 import { dedupeNodes, limitNodes } from "./config.js";
 
+const SHARE_PROTOCOLS = "(?:vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls)";
+const SHARE_LINK_RE = new RegExp(SHARE_PROTOCOLS + "://[^\\s\\\\]+", "gi");
+
 function decodeBase64(value) {
   const normalized = value.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
@@ -63,18 +66,26 @@ function parseStructured(text) {
   }
 }
 
+function parseShareLinks(text) {
+  const normalized = text.replace(/\\n/g, "\n");
+  const matches = normalized.match(SHARE_LINK_RE) || [];
+  return matches.map((link) => parseShareLink(link));
+}
+
 export function parseSubscription(input, { maxNodes = 30 } = {}) {
   if (typeof input !== "string" || !input.trim()) {
     throw new TypeError("subscription input must be non-empty text");
   }
 
   const text = input.trim();
-  let nodes;
+  let nodes = [];
 
-  if (/^(vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\//i.test(text)) {
-    nodes = text.split(/\r?\n|(?=(?:vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\/)/i)
-      .map((line) => line.trim()).filter(Boolean).map(parseShareLink);
-  } else {
+  if (SHARE_LINK_RE.test(text)) {
+    SHARE_LINK_RE.lastIndex = 0;
+    nodes = parseShareLinks(text);
+  }
+
+  if (!nodes.length) {
     let parsed = parseStructured(text);
     if (parsed === null) parsed = parseStructured(decodeBase64(text));
     if (parsed === null) throw new Error("unsupported subscription format");
