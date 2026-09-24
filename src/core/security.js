@@ -1,0 +1,1 @@
+export const securityDefaults=Object.freeze({killSwitch:true,failClosed:true,blockWebRTC3478:true,ipv6LeakBlackhole:true,encryptedDns:true}); export function securityPolicy(overrides={}){return {...securityDefaults,...overrides};}
