@@ -20,7 +20,7 @@ export const KernelCapabilityManifest = Object.freeze({
       NodeProtocols.HYSTERIA, NodeProtocols.HYSTERIA2,
       NodeProtocols.TUIC, NodeProtocols.ANYTLS
     ]),
-    unsupported: Object.freeze([])
+    unsupported: Object.freeze([NodeProtocols.WIREGUARD])
   }),
   [Kernels.XRAY]: Object.freeze({
     protocols: Object.freeze([
