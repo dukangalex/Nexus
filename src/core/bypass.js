@@ -1,0 +1,1 @@
+export function classifyDestination({sni="",asn="",isChina=false,latencyMs=9999}={}){if(isChina)return {route:"direct",reason:"cn-signal"};if(/^AS(?:45090|132203)$/.test(asn))return {route:"direct",reason:"cn-asn"};if(latencyMs<80)return {route:"direct",reason:"low-latency-cache"};return {route:"proxy",reason:"default"};}
