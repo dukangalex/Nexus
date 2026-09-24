@@ -62,6 +62,8 @@ function compileNode(node) {
     settings.address = server;
     settings.port = port;
   }
+  if (auth.flow && protocol === "vless") settings.flow = auth.flow;
+  if (auth.alterId !== null && auth.alterId !== undefined && protocol === "vmess") settings.alterId = auth.alterId;
 
   if (protocol === "vless" && !settings.id) throw new Error("Xray VLESS requires UUID: " + tag);
   if (protocol === "vmess" && !settings.vnext[0].users[0].id) throw new Error("Xray VMess requires UUID: " + tag);
