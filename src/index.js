@@ -5,3 +5,5 @@ export * from "./core/region.js";
 export * from "./core/import-pipeline.js";
 export * from "./core/kernel-capabilities.js";
 export * from "./core/unified-config.js";
+
+export * from "./core/compatibility.js";
