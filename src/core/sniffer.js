@@ -14,9 +14,9 @@ export function sniff(input) {
   if (SHARE_LINK_RE.test(text)) {
     return {
       kind: "share-link",
-      kernel: "sing-box",
+      kernel: null,
       candidates: ["sing-box", "xray"],
-      confidence: "protocol-link"
+      confidence: "protocol-link-ambiguous"
     };
   }
 
@@ -24,16 +24,25 @@ export function sniff(input) {
     const hasInbounds = Array.isArray(input.inbounds);
     const hasOutbounds = Array.isArray(input.outbounds);
 
+    if (hasInbounds && hasOutbounds && input.routing && typeof input.routing === "object") {
+      return { kind: "xray-json", kernel: "xray", candidates: ["xray"], confidence: "schema" };
+    }
+
     if (hasInbounds && hasOutbounds && input.route && typeof input.route === "object") {
       return { kind: "sing-box-json", kernel: "sing-box", candidates: ["sing-box"], confidence: "schema" };
     }
 
-    if (hasInbounds && hasOutbounds && input.routing && typeof input.routing === "object") {
-      return { kind: "xray-json", kernel: "xray", candidates: ["xray"], confidence: "schema" };
+    if (hasInbounds && hasOutbounds) {
+      return {
+        kind: "proxy-json-ambiguous",
+        kernel: null,
+        candidates: ["sing-box", "xray"],
+        confidence: "shared-schema"
+      };
     }
   }
 
-  if (text && looksLikeYaml(text, "proxies") && looksLikeYaml(text, "rules")) {
+  if (text && looksLikeYaml(text, "proxies")) {
     return { kind: "clash-yaml", kernel: "mihomo", candidates: ["mihomo"], confidence: "schema" };
   }
 
