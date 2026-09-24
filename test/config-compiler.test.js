@@ -69,8 +69,10 @@ test("compiles Xray VLESS and Shadowsocks using protocol-specific settings", () 
     id:"ss", name:"ss", protocol:"shadowsocks", server:"example.com", port:443,
     password:"p", method:"aes-128-gcm"
   }]});
-  assert.equal(ss.config.outbounds[0].settings.servers[0].method, "aes-128-gcm");
-  assert.equal(ss.config.outbounds[0].settings.servers[0].password, "p");
+  assert.equal(ss.config.outbounds[0].settings.address, "example.com");
+  assert.equal(ss.config.outbounds[0].settings.port, 443);
+  assert.equal(ss.config.outbounds[0].settings.method, "aes-128-gcm");
+  assert.equal(ss.config.outbounds[0].settings.password, "p");
 });
 
 test("compiles sing-box Hysteria2 password and TLS semantics", () => {
