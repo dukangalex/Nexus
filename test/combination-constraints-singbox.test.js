@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { validateNodeCombination } from "../src/core/combination-constraints.js";
 
-test("sing-box rejects Reality according to current TLS schema", () => {
+test("sing-box accepts Reality according to current 1.14 TLS schema", () => {
   const issues = validateNodeCombination("sing-box", {
     id: "reality",
     protocol: "vless",
@@ -16,6 +16,5 @@ test("sing-box rejects Reality according to current TLS schema", () => {
     }
   });
 
-  assert.ok(issues.some((item) => item.code === "SING_BOX_REALITY_UNSUPPORTED"));
-  assert.ok(issues.every((item) => item.severity === "error"));
+  assert.equal(issues.length, 0);
 });
