@@ -1,5 +1,6 @@
 import { sniff } from "./sniffer.js";
-import { parseSubscription } from "./subscription.js";
+import { parseSubscription, parseSubscriptionDocument } from "./subscription.js";
+import { toUnifiedConfig } from "./unified-config.js";
 import { normalizeNodeConfig } from "./config.js";
 import { Kernels } from "./model.js";
 
@@ -68,7 +69,9 @@ export function importConfig(input, { kernel = null, maxNodes = null } = {}) {
   }
 
   let nodes;
+  let sourceDocument = null;
   if (typeof input === "string") {
+    sourceDocument = parseSubscriptionDocument(input);
     nodes = parseSubscription(input, { maxNodes });
   } else if (input && typeof input === "object" && !Array.isArray(input)) {
     const candidates = Array.isArray(input.proxies)
@@ -92,12 +95,25 @@ export function importConfig(input, { kernel = null, maxNodes = null } = {}) {
     throw new TypeError("import input must be text or object");
   }
 
+  const unifiedInput = sourceDocument
+    ? (sourceDocument.kind === "share-links" ? { nodes } : sourceDocument.value)
+    : { ...input, nodes };
+  const unifiedConfig = toUnifiedConfig(unifiedInput, {
+    sourceFormat: inspection.detection.kind,
+    kernel: inspection.binding.kernel,
+    metadata: {
+      bindingMode: inspection.binding.mode,
+      detectionConfidence: inspection.detection.confidence
+    }
+  });
+
   return {
     ...inspection,
     model: {
       nodes,
       nodeCount: nodes.length,
-      nodeLimit: maxNodes
+      nodeLimit: maxNodes,
+      unifiedConfig
     }
   };
 }
