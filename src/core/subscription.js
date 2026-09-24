@@ -7,12 +7,22 @@ function decodeBase64(value) {
   return Buffer.from(padded, "base64").toString("utf8");
 }
 
+function fingerprint(value) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 function parseShareLink(link) {
   const url = new URL(link);
   const protocol = url.protocol.slice(0, -1).toLowerCase();
+  const name = url.hash ? decodeURIComponent(url.hash.slice(1)) : protocol + "://" + url.hostname + ":" + (url.port || "");
   const node = {
-    id: link,
-    name: url.hash ? decodeURIComponent(url.hash.slice(1)) : protocol + "://" + url.hostname + ":" + (url.port || ""),
+    id: "share-" + fingerprint(link),
+    name,
     kind: "node",
     protocol,
     server: url.hostname,
@@ -34,36 +44,39 @@ function parseShareLink(link) {
 function extractNodes(parsed) {
   if (Array.isArray(parsed)) return parsed;
   if (parsed && Array.isArray(parsed.proxies)) return parsed.proxies;
-  if (parsed && Array.isArray(parsed.outbounds)) return parsed.outbounds;
+  if (parsed && Array.isArray(parsed.outbounds)) {
+    return parsed.outbounds.filter((item) => item && item.type && !["selector", "urltest", "direct", "block", "dns"].includes(item.type));
+  }
   if (parsed && Array.isArray(parsed.nodes)) return parsed.nodes;
   return [];
 }
 
+function parseStructured(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    try {
+      return yaml.load(text);
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function parseSubscription(input, { maxNodes = 30 } = {}) {
-  if (typeof input !== "string" || !input.trim()) throw new TypeError("subscription input must be non-empty text");
+  if (typeof input !== "string" || !input.trim()) {
+    throw new TypeError("subscription input must be non-empty text");
+  }
 
   const text = input.trim();
   let nodes;
 
   if (/^(vmess|vless|trojan|ss|hysteria2|hy2|tuic|anytls):\/\//i.test(text)) {
-    nodes = text.split(/\r?\n/).filter(Boolean).map(parseShareLink);
+    nodes = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map(parseShareLink);
   } else {
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      try { parsed = yaml.load(text); } catch { parsed = null; }
-    }
-
-    if (!parsed) {
-      try {
-        parsed = JSON.parse(decodeBase64(text));
-      } catch {
-        try { parsed = yaml.load(decodeBase64(text)); }
-        catch { throw new Error("unsupported subscription format"); }
-      }
-    }
-
+    let parsed = parseStructured(text);
+    if (parsed === null) parsed = parseStructured(decodeBase64(text));
+    if (parsed === null) throw new Error("unsupported subscription format");
     nodes = extractNodes(parsed);
   }
 
