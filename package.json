@@ -1,0 +1,1 @@
+{"name":"nexus","version":"0.1.0","private":true,"description":"Nexus — 智能化全能代理系统","scripts":{"test":"node --test","lint":"node --check src/core/sniffer.js && node --check src/core/chain.js && node --check src/core/security.js && node --check src/core/self-healing.js"},"engines":{"node":">=20"}}
