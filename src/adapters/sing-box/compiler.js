@@ -11,7 +11,27 @@ function requireOutbound(config, id) {
 function compileNode(node) {
   const source = clone(node) || {};
   const type = String(source.protocol || source.type || "").toLowerCase();
-  const output = { type, tag: source.name || source.id, server: source.server || source.address, server_port: Number(source.server_port || source.port) };
+  const output = { type, tag: source.name || source.id, server: source.endpoint?.server || source.server || source.address, server_port: Number(source.endpoint?.port || source.server_port || source.port) };
+  if (source.auth?.uuid && (type === "vless" || type === "vmess")) {
+    output.uuid = source.auth.uuid;
+  } else if (source.auth?.username && type === "http") {
+    output.username = source.auth.username;
+    if (source.auth.password) output.password = source.auth.password;
+  } else if (source.auth?.password && ["trojan", "shadowsocks", "hysteria2", "tuic", "anytls"].includes(type)) {
+    output.password = source.auth.password;
+  }
+  if (source.tls) {
+    output.tls = { enabled: Boolean(source.tls.enabled), server_name: source.tls.serverName || undefined };
+    if (source.tls.alpn?.length) output.tls.alpn = [...source.tls.alpn];
+    if (source.tls.insecure) output.tls.insecure = true;
+    if (source.tls.fingerprint) output.tls.utls = { enabled: true, fingerprint: source.tls.fingerprint };
+  }
+  if (source.transport?.type === "ws") {
+    output.transport = { type: "ws", path: source.transport.path || "/" };
+    if (source.transport.headers) output.transport.headers = clone(source.transport.headers);
+  } else if (source.transport?.type === "grpc") {
+    output.transport = { type: "grpc", service_name: source.transport.serviceName || "" };
+  }
   if (!output.tag || !output.type || !output.server || !Number.isFinite(output.server_port)) throw new Error("sing-box node requires tag, type, server and server_port: " + (source.id || "unknown"));
   for (const key of ["uuid", "password", "username", "tls", "transport", "network", "security", "alter_id", "flow", "packet_encoding", "multiplex"]) if (source[key] !== undefined) output[key] = clone(source[key]);
   return output;
