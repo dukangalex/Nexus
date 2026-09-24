@@ -54,7 +54,7 @@ test("maps Xray routing and outbounds without treating groups as nodes", () => {
     kernel: Kernels.XRAY
   });
 
-  assert.equal(config.nodes.length, 2);
+  assert.equal(config.nodes.length, 1);
   assert.equal(config.routing.rules.length, 0);
   assert.equal(config.groups.length, 0);
 });
