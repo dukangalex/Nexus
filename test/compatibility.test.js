@@ -50,6 +50,6 @@ test("builds a user-visible cross-kernel capability matrix", () => {
   assert.equal(h2["sing-box"].status, CompatibilityStatus.SUPPORTED);
   assert.equal(h2.xray.status, CompatibilityStatus.UNSUPPORTED);
   assert.equal(xh.xray.status, CompatibilityStatus.SUPPORTED);
-  assert.equal(wg["sing-box"].status, CompatibilityStatus.SUPPORTED);
+  assert.equal(wg["sing-box"].status, CompatibilityStatus.UNSUPPORTED);
   assert.equal(wg.xray.status, CompatibilityStatus.SUPPORTED);
 });
