@@ -1,19 +1,10 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
 import yaml from "js-yaml";
 import { compileUnifiedConfig } from "../src/core/config-compiler.js";
 import { Kernels } from "../src/core/model.js";
-
-function realityPublicKey() {
-  const { publicKey } = generateKeyPairSync("x25519");
-  const der = publicKey.export({ type: "spki", format: "der" });
-  return der.subarray(der.length - 32).toString("base64url");
-}
-
-const REALITY_PUBLIC_KEY = realityPublicKey();
 
 const fixtures = {
   [Kernels.MIHOMO]: {
@@ -28,7 +19,7 @@ const fixtures = {
         enabled: true,
         serverName: "example.com",
         fingerprint: "chrome",
-        reality: { enabled: true, publicKey: REALITY_PUBLIC_KEY, shortId: "01234567" }
+        reality: { enabled: true, publicKey: "test-public-key", shortId: "01234567" }
       }
     }]
   },
@@ -85,6 +76,17 @@ const binaries = {
   [Kernels.XRAY]: process.env.NEXUS_XRAY_BIN
 };
 const requireBinaries = process.argv.includes("--require-binaries");
+let realityPublicKey = "test-public-key";
+if (binaries[Kernels.SING_BOX]) {
+  const keyResult = await command(binaries[Kernels.SING_BOX], ["generate", "reality-keypair"]);
+  const keyText = keyResult.stdout + "\n" + keyResult.stderr;
+  const match = keyText.match(/PublicKey:\s*([A-Za-z0-9_-]+)/);
+  if (!match) throw new Error("failed to generate a valid Reality public key with sing-box");
+  realityPublicKey = match[1];
+}
+for (const fixture of Object.values(fixtures)) {
+  fixture.nodes[0].tls.reality.publicKey = realityPublicKey;
+}
 const dir = await mkdtemp(join(tmpdir(), "nexus-kernel-conformance-"));
 const report = [];
 
