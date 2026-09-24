@@ -27,7 +27,7 @@ function extractNodes(input) {
     return input.outbounds.filter((item) => {
       if (!item || typeof item !== "object") return false;
       const type = String(item.type || "").toLowerCase();
-      return !["selector", "urltest", "direct", "block", "dns", "loopback"].includes(type);
+      return !["selector", "urltest", "direct", "block", "dns", "loopback", "freedom", "blackhole"].includes(type);
     });
   }
   return [];
