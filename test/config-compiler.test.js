@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { compileUnifiedConfig } from "../src/core/config-compiler.js";
 import { Kernels } from "../src/core/model.js";
+import { validateCompiledConfig } from "../src/core/compiled-config-validation.js";
 
 test("compiles a simple unified node to Mihomo", () => {
   const result = compileUnifiedConfig({
@@ -14,6 +15,7 @@ test("compiles a simple unified node to Mihomo", () => {
   assert.equal(result.status, "compiled");
   assert.equal(result.config.proxies[0].name, "us-1");
   assert.equal(result.config.proxies[0].port, 1080);
+  assert.equal(result.validation.ok, true);
 });
 
 test("compiles a simple unified node to sing-box", () => {
