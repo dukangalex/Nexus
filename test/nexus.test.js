@@ -117,3 +117,17 @@ test("canonical node normalization exposes endpoint auth TLS and transport seman
   assert.equal(node.transport.path, "/x");
   assert.equal(node.udp, true);
 });
+
+test("canonical node normalization preserves TLS version Reality and transport headers", () => {
+  const node = normalizeNode({
+    name: "reality", protocol: "vless", server: "example.com", port: 443,
+    uuid: "u", tls: { enabled: true, alpn: ["h2"], min_version: "1.2", max_version: "1.3",
+      reality: { public_key: "pk", short_id: "sid", spider_x: "/" } },
+    network: "ws", path: "/api", headers: { Host: "example.com" }
+  });
+  assert.equal(node.tls.minVersion, "1.2");
+  assert.equal(node.tls.maxVersion, "1.3");
+  assert.equal(node.tls.reality.publicKey, "pk");
+  assert.equal(node.tls.reality.shortId, "sid");
+  assert.deepEqual(node.transport.headers, { Host: "example.com" });
+});
