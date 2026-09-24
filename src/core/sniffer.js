@@ -39,20 +39,15 @@ function scoreSchema(input) {
 }
 
 function fromScores(scores, kind) {
-  let best = null;
-  let bestScore = 0;
-  const candidates = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
-  for (const kernel of candidates) {
-    if (scores[kernel] > bestScore) {
-      best = kernel;
-      bestScore = scores[kernel];
-    }
-  }
+  const candidates = Object.keys(scores).filter((kernel) => scores[kernel] > 0).sort((a, b) => scores[b] - scores[a]);
+  const bestScore = candidates.length ? scores[candidates[0]] : 0;
+  const tied = candidates.filter((kernel) => scores[kernel] === bestScore);
+  const best = bestScore > 0 && tied.length === 1 ? tied[0] : null;
   return {
     kind,
     kernel: best,
-    candidates: candidates.filter((kernel) => scores[kernel] > 0),
-    confidence: best ? "schema-scored" : "none",
+    candidates,
+    confidence: best ? "schema-scored" : (tied.length > 1 ? "schema-ambiguous" : "none"),
     score: bestScore
   };
 }
