@@ -1,10 +1,10 @@
 import { Kernels } from "../core/model.js";
-import { createKernelAdapter, AdapterCapabilities } from "./contract.js";
+import { createKernelAdapter, AdapterCapabilities, hasAdapterCapability } from "./contract.js";
 import { compileMihomoChain } from "./mihomo/compiler.js";
 import { compileSingBoxChain } from "./sing-box/compiler.js";
 import { compileXrayChain } from "./xray/compiler.js";
 
-export { AdapterCapabilities, createKernelAdapter };
+export { AdapterCapabilities, createKernelAdapter, hasAdapterCapability };
 
 export const adapters = Object.freeze({
   [Kernels.MIHOMO]: createKernelAdapter({
