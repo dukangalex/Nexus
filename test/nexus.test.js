@@ -6,12 +6,14 @@ test("sniff share link", () => {
   const result = sniff("vless://example");
   assert.equal(result.kernel, null);
   assert.deepEqual(result.candidates, ["sing-box", "xray"]);
+  assert.equal(result.evidence[0].reason.includes("does not by itself"), true);
 });
 
 test("binds Clash YAML to Mihomo", () => {
   const result = sniff("proxies:\n  - name: us\n    type: vless");
   assert.equal(result.kernel, "mihomo");
   assert.equal(result.kind, "clash-yaml");
+  assert.equal(result.evidence[0].path, "proxies");
 });
 
 test("binds sing-box JSON by route schema", () => {
@@ -21,6 +23,7 @@ test("binds sing-box JSON by route schema", () => {
   }));
   assert.equal(result.kernel, "sing-box");
   assert.equal(result.kind, "json");
+  assert.ok(result.evidence.some((item) => item.path === "route"));
 });
 
 test("binds Xray JSON by routing schema", () => {
@@ -30,12 +33,14 @@ test("binds Xray JSON by routing schema", () => {
   }));
   assert.equal(result.kernel, "xray");
   assert.equal(result.kind, "json");
+  assert.ok(result.evidence.some((item) => item.path === "routing"));
 });
 
 test("reports ambiguous shared JSON without inventing a binding", () => {
   const result = sniff(JSON.stringify({ inbounds: [], outbounds: [] }));
   assert.equal(result.kernel, null);
   assert.deepEqual(result.candidates, ["sing-box", "xray"]);
+  assert.equal(result.confidence, "schema-ambiguous");
 });
 
 import { validateChain } from "../src/core/chain.js";
