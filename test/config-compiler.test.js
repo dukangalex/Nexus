@@ -36,3 +36,24 @@ test("refuses an unverified protocol instead of silently degrading", () => {
     nodes: [{ id: "h2", name: "h2", protocol: "hysteria2", server: "example.com", port: 443 }]
   }), /not safely compilable/);
 });
+
+
+test("maps canonical TLS and transport to Mihomo", () => {
+  const result = compileUnifiedConfig({ kernel: Kernels.MIHOMO, nodes: [{
+    id:"v", name:"v", protocol:"vless", server:"example.com", port:443, uuid:"u",
+    tls:{enabled:true, serverName:"example.com", alpn:["h2"]},
+    transport:{type:"ws",path:"/api",headers:{Host:"example.com"}}
+  }]});
+  assert.equal(result.config.proxies[0].sni,"example.com");
+  assert.equal(result.config.proxies[0]["ws-opts"].path,"/api");
+});
+
+test("maps canonical TLS and transport to Xray", () => {
+  const result = compileUnifiedConfig({ kernel: Kernels.XRAY, nodes: [{
+    id:"v", name:"v", protocol:"vless", server:"example.com", port:443, uuid:"u",
+    tls:{enabled:true, serverName:"example.com"},
+    transport:{type:"grpc",serviceName:"api"}
+  }]});
+  assert.equal(result.config.outbounds[0].streamSettings.network,"grpc");
+  assert.equal(result.config.outbounds[0].streamSettings.tlsSettings.serverName,"example.com");
+});
