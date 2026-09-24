@@ -37,3 +37,15 @@ test("parses share links", () => {
   assert.equal(nodes[0].server, "example.com");
   assert.equal(nodes[0].name, "US");
 });
+
+
+test("normalizes structured nodes through the shared config pipeline", () => {
+  const nodes = parseSubscription(JSON.stringify({ outbounds: [
+    { tag: "us-1", type: "vless", server: "us.example", server_port: 443 },
+    { tag: "direct", type: "direct" },
+    { tag: "us-1", type: "vless", server: "duplicate.example", server_port: 443 }
+  ] }));
+  assert.equal(nodes.length, 1);
+  assert.equal(nodes[0].id, "us-1");
+  assert.equal(nodes[0].protocol, "vless");
+});
