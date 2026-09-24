@@ -14,9 +14,27 @@ function compileNode(node) {
   const output = {
     name: source.name || source.id,
     type,
-    server: source.server || source.address,
-    port: Number(source.port || source.server_port)
+    server: source.endpoint?.server || source.server || source.address,
+    port: Number(source.endpoint?.port || source.port || source.server_port)
   };
+  if (source.auth?.uuid && ["vless", "vmess"].includes(type)) output.uuid = source.auth.uuid;
+  if (source.auth?.username) output.username = source.auth.username;
+  if (source.auth?.password) output.password = source.auth.password;
+  if (source.tls) {
+    output.tls = Boolean(source.tls.enabled);
+    if (source.tls.serverName) output.sni = source.tls.serverName;
+    if (source.tls.insecure) output["skip-cert-verify"] = true;
+    if (source.tls.alpn?.length) output.alpn = [...source.tls.alpn];
+    if (source.tls.fingerprint) output["client-fingerprint"] = source.tls.fingerprint;
+  }
+  if (source.transport?.type === "ws") {
+    output.network = "ws";
+    output["ws-opts"] = { path: source.transport.path || "/" };
+    if (source.transport.headers) output["ws-opts"].headers = clone(source.transport.headers);
+  } else if (source.transport?.type === "grpc") {
+    output.network = "grpc";
+    output["grpc-opts"] = { "grpc-service-name": source.transport.serviceName || "" };
+  }
   if (!output.name || !output.type || !output.server || !Number.isFinite(output.port)) {
     throw new Error("Mihomo node requires name, type, server and port: " + (source.id || "unknown"));
   }
