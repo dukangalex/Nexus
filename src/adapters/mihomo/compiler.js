@@ -17,7 +17,7 @@ function compileNode(node) {
   if (source.method !== undefined) output.cipher = clone(source.method);
   if (source.cipher !== undefined) output.cipher = clone(source.cipher);
   if (source.tls) {
-    output.tls = Boolean(source.tls.enabled);
+    output.tls = Boolean(source.tls.enabled || source.tls.reality?.enabled);
     if (source.tls.serverName) output.sni = source.tls.serverName;
     if (source.tls.insecure) output["skip-cert-verify"] = true;
     if (source.tls.alpn?.length) output.alpn = [...source.tls.alpn];
