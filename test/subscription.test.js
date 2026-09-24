@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseSubscription } from "../src/core/subscription.js";
 
-test("parses Clash YAML and limits nodes", () => {
+test("parses Clash YAML and only limits nodes when the user opts in", () => {
   const yaml = [
     "proxies:",
     "  - name: US-1",
@@ -16,11 +16,18 @@ test("parses Clash YAML and limits nodes", () => {
     "  - name: JP-1",
     "    type: socks5",
     "    server: jp.example",
+    "    port: 1080",
+    "  - name: SG-1",
+    "    type: socks5",
+    "    server: sg.example",
     "    port: 1080"
   ].join("\n");
 
-  const nodes = parseSubscription(yaml, { maxNodes: 2 });
-  assert.deepEqual(nodes.map((n) => n.name), ["US-1", "JP-1"]);
+  const allNodes = parseSubscription(yaml);
+  assert.deepEqual(allNodes.map((n) => n.name), ["US-1", "JP-1", "SG-1"]);
+
+  const limitedNodes = parseSubscription(yaml, { maxNodes: 2 });
+  assert.deepEqual(limitedNodes.map((n) => n.name), ["US-1", "JP-1"]);
 });
 
 test("parses multiple share links without exposing the URI as the node id", () => {
@@ -37,7 +44,6 @@ test("parses share links", () => {
   assert.equal(nodes[0].server, "example.com");
   assert.equal(nodes[0].name, "US");
 });
-
 
 test("normalizes structured nodes through the shared config pipeline", () => {
   const nodes = parseSubscription(JSON.stringify({ outbounds: [
