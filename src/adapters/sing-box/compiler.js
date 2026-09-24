@@ -13,7 +13,8 @@ function compileNode(node) {
   const auth = source.auth || source;
   if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
   if (auth.username && type === "http") output.username = auth.username;
-  if (auth.password && ["http","trojan","shadowsocks","hysteria","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
+  if (auth.password && ["http","trojan","shadowsocks","hysteria2","tuic","anytls"].includes(type)) output.password = auth.password;
+  if (type === "hysteria" && auth.password) output.auth_str = auth.password;
   if (source.tls) {
     output.tls = { enabled: Boolean(source.tls.enabled || source.tls.reality?.enabled) };
     if (source.tls.serverName) output.tls.server_name = source.tls.serverName;
