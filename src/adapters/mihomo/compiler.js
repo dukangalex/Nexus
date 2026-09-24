@@ -10,7 +10,7 @@ function compileNode(node) {
   const source = clone(node) || {};
   const type = String(source.protocol || source.type || "").toLowerCase();
   const output = { name: source.name || source.id, type, server: source.endpoint?.server || source.server || source.address, port: Number(source.endpoint?.port || source.port || source.server_port) };
-  const auth = source.auth || {};
+  const auth = source.auth || source;
   if (auth.uuid && ["vless","vmess","tuic"].includes(type)) output.uuid = auth.uuid;
   if (auth.username) output.username = auth.username;
   if (auth.password) output.password = auth.password;
@@ -18,7 +18,7 @@ function compileNode(node) {
   if (source.cipher !== undefined) output.cipher = clone(source.cipher);
   if (source.tls) {
     output.tls = Boolean(source.tls.enabled);
-    if (source.tls.serverName) output.servername = source.tls.serverName;
+    if (source.tls.serverName) output.sni = source.tls.serverName;
     if (source.tls.insecure) output["skip-cert-verify"] = true;
     if (source.tls.alpn?.length) output.alpn = [...source.tls.alpn];
     if (source.tls.fingerprint) output["client-fingerprint"] = source.tls.fingerprint;
