@@ -1,0 +1,1 @@
+export function normalizeConfig(input){if(typeof input==="string")return {source:"text",value:input}; if(input&&typeof input==="object")return {source:"object",value:structuredClone(input)}; throw new TypeError("configuration must be text or object");} export function limitNodes(nodes,max=30){return Array.isArray(nodes)?nodes.slice(0,max):[];}
