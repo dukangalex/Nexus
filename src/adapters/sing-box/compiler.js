@@ -33,6 +33,9 @@ function compileNode(node) {
     output.transport = { type: "grpc", service_name: source.transport.serviceName || "" };
   }
   if (!output.tag || !output.type || !output.server || !Number.isFinite(output.server_port)) throw new Error("sing-box node requires tag, type, server and server_port: " + (source.id || "unknown"));
+  if (source.auth?.flow !== undefined) output.flow = clone(source.auth.flow);
+  if (source.auth?.alterId !== undefined) output.alter_id = clone(source.auth.alterId);
+  if (source.udp !== undefined) output.network = source.udp ? "udp" : output.network;
   for (const key of ["uuid", "password", "username", "network", "security", "alter_id", "flow", "packet_encoding", "multiplex"]) if (source[key] !== undefined && output[key] === undefined) output[key] = clone(source[key]);
   return output;
 }
