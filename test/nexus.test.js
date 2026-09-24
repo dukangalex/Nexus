@@ -87,3 +87,10 @@ test("import pipeline preserves user-selected node limit", () => {
   assert.equal(result.model.nodeCount, 2);
   assert.equal(result.model.nodeLimit, 2);
 });
+
+test("import pipeline rejects incompatible explicit kernel", () => {
+  assert.throws(
+    () => inspectImport(JSON.stringify({ inbounds: [], outbounds: [], route: { rules: [] } }), { kernel: "xray" }),
+    /incompatible/
+  );
+});
