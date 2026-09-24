@@ -16,14 +16,14 @@ export const adapters = Object.freeze({
   }),
   [Kernels.SING_BOX]: createKernelAdapter({
     kernel: Kernels.SING_BOX,
-    capabilities: [AdapterCapabilities.CHAIN_COMPILE],
+    capabilities: [AdapterCapabilities.CONFIG_COMPILE, AdapterCapabilities.CHAIN_COMPILE],
     chainMechanism: "detour",
     compileConfig: compileSingBoxConfig,
     compileChain: compileSingBoxChain,
   }),
   [Kernels.XRAY]: createKernelAdapter({
     kernel: Kernels.XRAY,
-    capabilities: [AdapterCapabilities.CHAIN_COMPILE],
+    capabilities: [AdapterCapabilities.CONFIG_COMPILE, AdapterCapabilities.CHAIN_COMPILE],
     chainMechanism: "streamSettings.sockopt.dialerProxy",
     compileConfig: compileXrayConfig,
     compileChain: compileXrayChain,
