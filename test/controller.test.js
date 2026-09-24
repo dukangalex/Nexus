@@ -24,3 +24,11 @@ test("compiler accepts explicit kernel and chain", () => {
   const out = compileChain("sing-box", config, chain);
   assert.equal(out.outbounds[1].detour, "entry");
 });
+
+test("does not silently choose a kernel for an ambiguous share link", () => {
+  const c = new ProxyCoreController();
+  assert.throws(() => c.load("vless://user@example.com:443#US"), /ambiguous/);
+  const d = c.load("vless://user@example.com:443#US", { kernel: "xray" });
+  assert.equal(d.kernel, "xray");
+  assert.equal(d.selection, "explicit");
+});
