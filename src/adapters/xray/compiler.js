@@ -22,6 +22,7 @@ function compileNode(node) {
   const auth = source.auth || {};
   const settings = clone(source.settings) || {};
   const output = { protocol, tag, settings };
+  const flow = auth.flow || source.flow;
 
   if (protocol === "vless") {
     settings.vnext = undefined;
@@ -29,30 +30,21 @@ function compileNode(node) {
     settings.port = port;
     settings.id = auth.uuid || source.uuid;
     settings.encryption = source.encryption || "none";
-    if (auth.flow) settings.flow = auth.flow;
+    if (flow) settings.flow = flow;
   } else if (protocol === "vmess") {
     settings.vnext = [{
       address: server,
       port,
       users: [{
         id: auth.uuid || source.uuid,
-        alterId: auth.alterId ?? 0,
+        alterId: auth.alterId ?? source.alterId ?? 0,
         security: source.security || "auto"
       }]
     }];
   } else if (protocol === "trojan") {
-    settings.servers = [{
-      address: server,
-      port,
-      password: auth.password || source.password
-    }];
+    settings.servers = [{ address: server, port, password: auth.password || source.password }];
   } else if (protocol === "shadowsocks") {
-    settings.servers = [{
-      address: server,
-      port,
-      method: source.method || source.cipher,
-      password: auth.password || source.password
-    }];
+    settings.servers = [{ address: server, port, method: source.method || source.cipher, password: auth.password || source.password }];
   } else if (protocol === "socks") {
     settings.servers = [{ address: server, port, users: auth.username ? [{ user: auth.username, pass: auth.password || "" }] : [] }];
   } else if (protocol === "http") {
@@ -62,17 +54,12 @@ function compileNode(node) {
     settings.address = server;
     settings.port = port;
   }
-  if (auth.flow && protocol === "vless") settings.flow = auth.flow;
   if (auth.alterId !== null && auth.alterId !== undefined && protocol === "vmess") settings.alterId = auth.alterId;
 
   if (protocol === "vless" && !settings.id) throw new Error("Xray VLESS requires UUID: " + tag);
   if (protocol === "vmess" && !settings.vnext[0].users[0].id) throw new Error("Xray VMess requires UUID: " + tag);
-  if (["trojan", "shadowsocks"].includes(protocol) && !settings.servers[0].password) {
-    throw new Error("Xray " + protocol + " requires password: " + tag);
-  }
-  if (protocol === "shadowsocks" && !settings.servers[0].method) {
-    throw new Error("Xray Shadowsocks requires method: " + tag);
-  }
+  if (["trojan", "shadowsocks"].includes(protocol) && !settings.servers[0].password) throw new Error("Xray " + protocol + " requires password: " + tag);
+  if (protocol === "shadowsocks" && !settings.servers[0].method) throw new Error("Xray Shadowsocks requires method: " + tag);
 
   if (source.tls) {
     output.streamSettings = output.streamSettings || {};
@@ -89,13 +76,11 @@ function compileNode(node) {
       output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
       output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint;
     }
-    if (source.tls.reality?.enabled) {
-      output.streamSettings.realitySettings = {
-        publicKey: source.tls.reality.publicKey,
-        shortId: source.tls.reality.shortId,
-        spiderX: source.tls.reality.spiderX
-      };
-    }
+    if (source.tls.reality?.enabled) output.streamSettings.realitySettings = {
+      publicKey: source.tls.reality.publicKey,
+      shortId: source.tls.reality.shortId,
+      spiderX: source.tls.reality.spiderX
+    };
   }
   if (source.transport?.type) {
     output.streamSettings = output.streamSettings || {};
@@ -107,9 +92,7 @@ function compileNode(node) {
       output.streamSettings.grpcSettings = { serviceName: source.transport.serviceName || "" };
     }
   }
-  if (source.streamSettings) {
-    output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
-  }
+  if (source.streamSettings) output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
   return output;
 }
 
