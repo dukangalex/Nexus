@@ -3,6 +3,68 @@ import { Kernels } from "./model.js";
 function nonEmptyObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
+function hasText(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function finitePort(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 65535;
+}
+function push(errors, message) {
+  errors.push(message);
+}
+
+const MIHOMO_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","hysteria2","tuic","anytls","wireguard"]);
+const SING_BOX_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","hysteria2","tuic","anytls","wireguard"]);
+const XRAY_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","wireguard"]);
+
+function validateEndpoint(item, label, errors) {
+  if (!hasText(item.server)) push(errors, label + " requires server");
+  if (!finitePort(item.server_port ?? item.port)) push(errors, label + " requires a valid server port");
+}
+
+function validateMihomoProxy(proxy, index, errors) {
+  const label = "Mihomo proxy[" + index + "]";
+  if (!hasText(proxy.name)) push(errors, label + " requires name");
+  if (!hasText(proxy.type)) push(errors, label + " requires type");
+  if (!MIHOMO_TYPES.has(proxy.type)) push(errors, label + " uses unsupported proxy type: " + proxy.type);
+  if (!hasText(proxy.server)) push(errors, label + " requires server");
+  if (!finitePort(proxy.port)) push(errors, label + " requires valid port");
+  if (["vmess","vless","tuic"].includes(proxy.type) && !hasText(proxy.uuid)) push(errors, label + " requires uuid");
+  if (["trojan","hysteria2","anytls"].includes(proxy.type) && !hasText(proxy.password)) push(errors, label + " requires password");
+  if (proxy.type === "shadowsocks" && (!hasText(proxy.cipher) || !hasText(proxy.password))) push(errors, label + " requires cipher and password");
+  if (proxy.tls && proxy["reality-opts"] && proxy["reality-opts"]["public-key"] === undefined) push(errors, label + " Reality requires public-key");
+}
+
+function validateSingBoxOutbound(outbound, index, errors) {
+  const label = "sing-box outbound[" + index + "]";
+  if (!hasText(outbound.tag)) push(errors, label + " requires tag");
+  if (!hasText(outbound.type)) push(errors, label + " requires type");
+  if (!SING_BOX_TYPES.has(outbound.type)) return;
+  validateEndpoint(outbound, label, errors);
+  if (["vmess","vless","tuic"].includes(outbound.type) && !hasText(outbound.uuid)) push(errors, label + " requires uuid");
+  if (["trojan","shadowsocks","hysteria","hysteria2","tuic","anytls"].includes(outbound.type) && !hasText(outbound.password)) push(errors, label + " requires password");
+  if (outbound.type === "shadowsocks" && !hasText(outbound.method)) push(errors, label + " requires method");
+  if (outbound.tls?.reality?.enabled) {
+    if (!hasText(outbound.tls.reality.public_key)) push(errors, label + " Reality requires public_key");
+    if (outbound.tls.reality.short_id === undefined) push(errors, label + " Reality requires short_id");
+  }
+}
+
+function validateXrayOutbound(outbound, index, errors) {
+  const label = "Xray outbound[" + index + "]";
+  if (!hasText(outbound.tag)) push(errors, label + " requires tag");
+  if (!hasText(outbound.protocol)) push(errors, label + " requires protocol");
+  if (!XRAY_TYPES.has(outbound.protocol)) return;
+  const settings = nonEmptyObject(outbound.settings) ? outbound.settings : {};
+  if (["vless","vmess","trojan","shadowsocks","hysteria","socks","http"].includes(outbound.protocol)) {
+    if (!hasText(settings.address)) push(errors, label + " requires settings.address");
+    if (!finitePort(settings.port)) push(errors, label + " requires settings.port");
+  }
+  if (["vless","vmess"].includes(outbound.protocol) && !hasText(settings.id)) push(errors, label + " requires settings.id");
+  if (["trojan","shadowsocks"].includes(outbound.protocol) && !hasText(settings.password)) push(errors, label + " requires settings.password");
+  if (outbound.protocol === "shadowsocks" && !hasText(settings.method)) push(errors, label + " requires settings.method");
+  if (outbound.protocol === "hysteria" && settings.version !== 2) push(errors, label + " Hysteria requires version 2");
+}
 
 export function validateCompiledConfig(config, kernel) {
   const errors = [];
@@ -10,15 +72,17 @@ export function validateCompiledConfig(config, kernel) {
   if (!nonEmptyObject(config)) {
     errors.push("compiled configuration must be an object");
   } else if (kernel === Kernels.MIHOMO) {
-    if (!Array.isArray(config.proxies)) errors.push("Mihomo compiled configuration requires proxies");
-  } else if (kernel === Kernels.SING_BOX || kernel === Kernels.XRAY) {
-    if (!Array.isArray(config.outbounds)) errors.push(kernel + " compiled configuration requires outbounds");
+    if (!Array.isArray(config.proxies)) push(errors, "Mihomo compiled configuration requires proxies");
+    else config.proxies.forEach((proxy, index) => validateMihomoProxy(proxy, index, errors));
+  } else if (kernel === Kernels.SING_BOX) {
+    if (!Array.isArray(config.outbounds)) push(errors, "sing-box compiled configuration requires outbounds");
+    else config.outbounds.forEach((outbound, index) => validateSingBoxOutbound(outbound, index, errors));
+  } else if (kernel === Kernels.XRAY) {
+    if (!Array.isArray(config.outbounds)) push(errors, "Xray compiled configuration requires outbounds");
+    else config.outbounds.forEach((outbound, index) => validateXrayOutbound(outbound, index, errors));
   } else {
     errors.push("unsupported kernel: " + kernel);
   }
 
-  return {
-    ok: errors.length === 0,
-    errors
-  };
+  return { ok: errors.length === 0, errors };
 }
