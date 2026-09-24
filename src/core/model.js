@@ -25,7 +25,15 @@ function normalizeTls(source){
     insecure:raw.insecure === true || source.allowInsecure === true,
     alpn:Array.isArray(raw.alpn)?[...raw.alpn]:[],
     fingerprint:text(source.fingerprint||source.client_fingerprint||raw.utls?.fingerprint),
-    reality:reality && typeof reality==="object" ? clone(reality) : null
+    minVersion:text(raw.min_version||raw.minVersion),
+    maxVersion:text(raw.max_version||raw.maxVersion),
+    reality:reality && typeof reality==="object" ? {
+      enabled: true,
+      publicKey:text(reality.public_key||reality.publicKey||reality.pbk),
+      shortId:text(reality.short_id||reality.shortId||reality.sid),
+      spiderX:text(reality.spider_x||reality.spiderX),
+      raw:clone(reality)
+    } : null
   };
 }
 
@@ -38,6 +46,7 @@ function normalizeTransport(source){
     path:text(source.path||raw.path||source.ws_path),
     host:Array.isArray(source.host)?[...source.host]:text(source.host||raw.host),
     serviceName:text(source.service_name||raw.service_name||source.serviceName),
+    headers:source.headers && typeof source.headers==="object" ? clone(source.headers) : (raw.headers && typeof raw.headers==="object" ? clone(raw.headers) : null),
     mode:text(source.mode||raw.mode),
     raw:clone(raw)
   };
