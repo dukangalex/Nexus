@@ -57,3 +57,28 @@ test("maps canonical TLS and transport to Xray", () => {
   assert.equal(result.config.outbounds[0].streamSettings.network,"grpc");
   assert.equal(result.config.outbounds[0].streamSettings.tlsSettings.serverName,"example.com");
 });
+
+test("compiles Xray VLESS and Shadowsocks using protocol-specific settings", () => {
+  const vless = compileUnifiedConfig({ kernel: Kernels.XRAY, nodes: [{
+    id:"v", name:"v", protocol:"vless", server:"example.com", port:443, uuid:"u"
+  }]});
+  assert.equal(vless.config.outbounds[0].settings.address, "example.com");
+  assert.equal(vless.config.outbounds[0].settings.id, "u");
+
+  const ss = compileUnifiedConfig({ kernel: Kernels.XRAY, nodes: [{
+    id:"ss", name:"ss", protocol:"shadowsocks", server:"example.com", port:443,
+    password:"p", method:"aes-128-gcm"
+  }]});
+  assert.equal(ss.config.outbounds[0].settings.servers[0].method, "aes-128-gcm");
+  assert.equal(ss.config.outbounds[0].settings.servers[0].password, "p");
+});
+
+test("compiles sing-box Hysteria2 password and TLS semantics", () => {
+  const result = compileUnifiedConfig({ kernel: Kernels.SING_BOX, nodes: [{
+    id:"h", name:"h", protocol:"hysteria2", server:"example.com", port:443,
+    password:"p", tls:{enabled:true, serverName:"example.com", alpn:["h3"]}
+  }]});
+  assert.equal(result.config.outbounds[0].password, "p");
+  assert.equal(result.config.outbounds[0].tls.server_name, "example.com");
+  assert.deepEqual(result.config.outbounds[0].tls.alpn, ["h3"]);
+});
