@@ -4,6 +4,7 @@ import {
   PlatformId,
   PlatformCapabilities,
   createPlatformContract,
+  getPlatformCapabilityRequirements,
 } from "../src/platform/contract.js";
 
 test("all five target platforms are first-class", () => {
@@ -19,10 +20,7 @@ test("all five target platforms are first-class", () => {
 test("platform contract validates required lifecycle and network methods", () => {
   const platform = createPlatformContract({
     platform: PlatformId.LINUX,
-    capabilities: [
-      PlatformCapabilities.TUN,
-      PlatformCapabilities.NETWORK_MONITOR,
-    ],
+    capabilities: [],
     start() {},
     stop() {},
     getNetworkState() {
@@ -31,10 +29,61 @@ test("platform contract validates required lifecycle and network methods", () =>
   });
 
   assert.equal(platform.platform, "linux");
-  assert.equal(platform.capabilities.includes("tun"), true);
 });
 
-test("invalid platform implementation is rejected", () => {
+test("capability declarations require concrete platform bridge methods", () => {
+  const tunOnly = {
+    platform: PlatformId.LINUX,
+    capabilities: [PlatformCapabilities.TUN],
+    start() {},
+    stop() {},
+    getNetworkState() {
+      return { online: true };
+    },
+  };
+
+  assert.throws(
+    () => createPlatformContract(tunOnly),
+    /requires method: startTun/,
+  );
+
+  const platform = createPlatformContract({
+    ...tunOnly,
+    startTun() {},
+    stopTun() {},
+  });
+
+  assert.equal(platform.capabilities.includes(PlatformCapabilities.TUN), true);
+});
+
+test("capability requirements are explicit and stable", () => {
+  assert.deepEqual(
+    getPlatformCapabilityRequirements(PlatformCapabilities.APP_EXCLUSION),
+    ["setAppExclusions"],
+  );
+  assert.deepEqual(
+    getPlatformCapabilityRequirements(PlatformCapabilities.SECURE_STORAGE),
+    [
+      "getSecureValue",
+      "setSecureValue",
+      "deleteSecureValue",
+    ],
+  );
+});
+
+test("unsupported capability and invalid platform implementation are rejected", () => {
+  assert.throws(
+    () =>
+      createPlatformContract({
+        platform: PlatformId.LINUX,
+        capabilities: ["unknown"],
+        start() {},
+        stop() {},
+        getNetworkState() {},
+      }),
+    /unsupported platform capability/,
+  );
+
   assert.throws(
     () =>
       createPlatformContract({
