@@ -7,3 +7,5 @@ export {
 
 export { createPlatformBridge } from "./bridge.js";
 export { inspectPlatformCapabilities } from "./capability-inspector.js";
+
+export { createPlatformRuntime } from "./runtime.js";
