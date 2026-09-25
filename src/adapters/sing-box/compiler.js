@@ -54,7 +54,7 @@ export function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
-  if (config.routing && Object.keys(config.routing).length) {\n    output.route = { rules: compileRoutingPolicy(config.routing, Kernels.SING_BOX) };\n    const fallback = config.routing.defaultAction;\n    if (fallback) {\n      if (fallback.type === "route" || fallback.type === "chain") output.route.final = fallback.target;\n      else if (fallback.type === "reject") output.route.final = "";\n      else throw new Error("unsupported sing-box default routing action: " + fallback.type);\n    }\n  }
+  if (config.routing && Object.keys(config.routing).length) {\n    output.route = { rules: compileRoutingPolicy(config.routing, Kernels.SING_BOX) };\n    const fallback = config.routing.defaultAction;\n    if (fallback) {\n      if (fallback.type === "route" || fallback.type === "chain") output.route.final = fallback.target;\n      else throw new Error("unsupported sing-box default routing action: " + fallback.type);\n    }\n  }
   return output;
 }
 export function compileSingBoxChain(config, chain) {
