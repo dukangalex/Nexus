@@ -36,17 +36,44 @@ function normalizeType(group) {
   return clean(group.type).toLowerCase();
 }
 
-export function compileGroups(groups, kernel) {
+function targetMaps(groups, nodes, kernel) {
+  const nodeTargets = new Map();
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (!node || !node.id) continue;
+    const id = String(node.id).trim();
+    const target = kernel === Kernels.MIHOMO ? clean(node.name) || id : clean(node.name) || id;
+    nodeTargets.set(id, target);
+  }
+
+  const groupTargets = new Map();
+  for (const group of groups) {
+    if (!group || !group.id || group.enabled === false) continue;
+    groupTargets.set(String(group.id).trim(), kernel === Kernels.MIHOMO ? clean(group.name) || group.id : group.id);
+  }
+
+  return { nodeTargets, groupTargets };
+}
+
+function resolveMembers(group, maps) {
+  return requireMembers(group).map((member) => {
+    if (maps.nodeTargets.has(member)) return maps.nodeTargets.get(member);
+    if (maps.groupTargets.has(member)) return maps.groupTargets.get(member);
+    throw new Error("group references missing node or group: " + member);
+  });
+}
+
+export function compileGroups(groups, kernel, nodes = []) {
   const definitions = groupList(groups);
   const output = [];
   const targetMap = new Map();
+  const maps = targetMaps(definitions, nodes, kernel);
 
   for (const group of definitions) {
     if (group.enabled === false) continue;
 
     const type = normalizeType(group);
     if (!type) throw new Error("group type is required: " + group.id);
-    const members = requireMembers(group);
+    const members = [...new Set(resolveMembers(group, maps))];
 
     if (kernel === Kernels.MIHOMO) {
       if (!MIHOMO_TYPES.has(type)) throw new Error("unsupported Mihomo group type: " + type);
