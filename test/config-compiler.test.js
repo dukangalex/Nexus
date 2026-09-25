@@ -223,3 +223,30 @@ test("fails closed when a chain group becomes entirely unusable", () => {
     chains: [{ id: "broken", hops: [{ id: "entry" }, { group: "exit-group" }] }]
   }), /chain broken cannot be safely compiled.*no usable member/);
 });
+
+test("chain-only unsupported groups are omitted from kernel compilation", () => {
+  const common = {
+    nodes: [
+      { id: "entry", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "exit", protocol: "socks", server: "exit.example", port: 1080 }
+    ],
+    groups: [{ id: "exit-group", name: "Exit Group", type: "fallback", members: ["exit"] }],
+    chains: [{ id: "entry-to-exit", hops: [{ id: "entry" }, { group: "exit-group" }] }],
+    routing: { defaultAction: { type: "chain", target: "entry-to-exit" } }
+  };
+
+  for (const kernel of [Kernels.MIHOMO, Kernels.SING_BOX, Kernels.XRAY]) {
+    const result = compileUnifiedConfig({ ...common, kernel });
+    assert.equal(result.chains[0].hops.join(","), "entry,exit");
+    assert.deepEqual(result.groups, []);
+  }
+});
+
+test("directly routed unsupported groups still fail closed", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.XRAY,
+    nodes: [{ id: "exit", protocol: "socks", server: "exit.example", port: 1080 }],
+    groups: [{ id: "exit-group", type: "fallback", members: ["exit"] }],
+    routing: { defaultAction: { type: "route", target: "exit-group" } }
+  }), /Xray does not support unified group type without semantic downgrade: fallback/);
+});
