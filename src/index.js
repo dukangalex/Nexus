@@ -9,6 +9,7 @@ export * from "./core/unified-config.js";
 export * from "./core/compatibility.js";
 
 export * from "./core/config-compiler.js";
+export * from "./core/routing-compiler.js";
 
 export * from "./core/compiled-config-validation.js";
 
