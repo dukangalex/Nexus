@@ -1,5 +1,6 @@
 import { createRoutingPolicy, validateRoutingPolicy } from "./routing-policy.js";
 import { resolveGroupMember } from "./group.js";
+import { resolveChain } from "./chain-resolution.js";
 
 function values(value) { return Array.isArray(value) ? value : [value]; }
 function normalize(value) { return String(value ?? "").toLowerCase(); }
@@ -58,9 +59,39 @@ function groupForTarget(groups, target) {
   if (groups instanceof Map) return groups.get(target) || null;
   return groups[target] || null;
 }
+function chainForTarget(chains, target) {
+  if (!chains || typeof chains !== "object") return null;
+  if (chains instanceof Map) return chains.get(target) || null;
+  if (Array.isArray(chains)) return chains.find((chain) => chain && chain.id === target) || null;
+  return chains[target] || null;
+}
+function chainHops(definition) {
+  if (Array.isArray(definition)) return definition;
+  if (!definition || typeof definition !== "object") return null;
+  if (Array.isArray(definition.hops)) return definition.hops;
+  if (Array.isArray(definition.chain)) return definition.chain;
+  return null;
+}
 export function resolvePolicyTarget(result, options = {}) {
   if (!result || result.ok !== true) return { ok: false, action: { type: "reject" }, error: "invalid policy result" };
   const action = result.action || {};
+  if (action.type === "chain" && options.chains) {
+    const definition = chainForTarget(options.chains, action.target);
+    if (!definition) return { ok: false, action: { type: "reject" }, rule: result.rule || null, error: "chain not found: " + action.target };
+    const hops = chainHops(definition);
+    if (!hops) return { ok: false, action: { type: "reject" }, rule: result.rule || null, error: "chain has no hops: " + action.target };
+    const resolver = typeof options.resolveChain === "function" ? options.resolveChain : resolveChain;
+    const resolved = resolver(hops, {
+      nodes: options.nodes || [],
+      groups: options.groups || {},
+      states: options.states,
+      maxDepth: options.maxDepth
+    });
+    if (!resolved || resolved.ok !== true || !Array.isArray(resolved.data?.hops)) {
+      return { ok: false, action: { type: "reject" }, rule: result.rule || null, error: resolved?.error || "chain resolution failed: " + action.target };
+    }
+    return { ...result, action: { ...action, target: action.target }, chain: definition, hops: resolved.data.hops };
+  }
   if ((action.type !== "route" && action.type !== "chain") || !options.groups) return result;
   const group = groupForTarget(options.groups, action.target);
   if (!group) return result;
