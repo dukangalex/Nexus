@@ -41,15 +41,15 @@ test("rejects nested chain cycles", () => {
 });
 
 test("enforces maximum nested chain depth", () => {
-  const nested = { id: "deep", chain: [{ id: "entry" }, { id: "exit" }] };
+  const nested = { id: "deep", chain: [{ id: "relay" }, { id: "exit" }] };
   const result = resolveChain([{ id: "entry" }, nested], {
-    nodes: [{ id: "entry" }, { id: "exit" }],
-    maxDepth: 0
+    nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }],
+    maxDepth: 1
   });
   assert.equal(result.ok, true);
 
-  const limited = resolveChain([{ id: "entry" }, { id: "deep", chain: [{ id: "entry" }, nested] }], {
-    nodes: [{ id: "entry" }, { id: "exit" }],
+  const limited = resolveChain([{ id: "entry" }, { id: "deep", chain: [{ id: "relay" }, nested] }], {
+    nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }],
     maxDepth: 1
   });
   assert.equal(limited.ok, false);
