@@ -33,12 +33,17 @@ export function canDecideAutomatically(action) {
   return AUTO_ACTIONS.includes(action) && !requiresUserConfirmation(action);
 }
 
+function freezeOption(option) {
+  if (option !== null && typeof option === "object") return Object.freeze({ ...option });
+  return option;
+}
+
 export function createDecisionPrompt(action, options = [], context = {}) {
   const userControlled = USER_DECISIONS.includes(action) || requiresUserConfirmation(action);
   return Object.freeze({
     action,
     requiresUserChoice: userControlled,
-    options: Object.freeze(options.map((option) => Object.freeze({ ...option }))),
+    options: Object.freeze(options.map(freezeOption)),
     context: Object.freeze({ ...context }),
     message: userControlled
       ? "Nexus will present available options, explain their effects, and wait for the user's choice."
