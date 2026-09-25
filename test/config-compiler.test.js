@@ -37,7 +37,6 @@ test("refuses an unverified protocol instead of silently degrading", () => {
   }), /not safely compilable/);
 });
 
-
 test("maps canonical TLS and transport to Mihomo", () => {
   const result = compileUnifiedConfig({ kernel: Kernels.MIHOMO, nodes: [{
     id:"v", name:"v", protocol:"vless", server:"example.com", port:443, uuid:"u",
@@ -93,4 +92,87 @@ test("preserves canonical auth flow across kernel compilers", () => {
   assert.equal(xray.config.outbounds[0].settings.flow, "xtls-rprx-vision");
   assert.equal(sing.config.outbounds[0].flow, "xtls-rprx-vision");
   assert.equal(mihomo.config.proxies[0].flow, "xtls-rprx-vision");
+});
+
+test("compiles a resolved chain through the full unified pipeline for all kernels", () => {
+  const common = {
+    nodes: [
+      { id: "entry", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "exit", protocol: "socks", server: "exit.example", port: 1080 }
+    ],
+    groups: [],
+    chains: [{ id: "entry-to-exit", mode: "node->node", hops: [{ id: "entry" }, { id: "exit" }] }],
+    routing: {
+      rules: [{
+        id: "chain-rule",
+        name: "Chain rule",
+        order: 1,
+        match: { domain_suffix: ["example.com"] },
+        action: { type: "chain", target: "entry-to-exit" }
+      }],
+      defaultAction: { type: "chain", target: "entry-to-exit" }
+    }
+  };
+
+  const mihomo = compileUnifiedConfig({ ...common, kernel: Kernels.MIHOMO });
+  assert.equal(mihomo.config.proxies.find((p) => p.name === "exit")["dialer-proxy"], "entry");
+  assert.equal(mihomo.config.rules[0], "DOMAIN-SUFFIX,example.com,exit");
+  assert.equal(mihomo.config.rules[1], "MATCH,exit");
+
+  const sing = compileUnifiedConfig({ ...common, kernel: Kernels.SING_BOX });
+  assert.equal(sing.config.outbounds.find((o) => o.tag === "exit").detour, "entry");
+  assert.equal(sing.config.route.rules[0].outbound, "exit");
+  assert.equal(sing.config.route.final, "exit");
+
+  const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
+  assert.equal(xray.config.outbounds.find((o) => o.tag === "exit").streamSettings.sockopt.dialerProxy, "entry");
+  assert.equal(xray.config.routing.rules[0].outboundTag, "exit");
+  assert.equal(xray.config.routing.rules[1].outboundTag, "exit");
+});
+
+test("resolves chain groups from unified group arrays before kernel compilation", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [
+      { id: "entry", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "exit-1", protocol: "socks", server: "exit1.example", port: 1080 },
+      { id: "exit-2", protocol: "socks", server: "exit2.example", port: 1080 }
+    ],
+    groups: [{
+      id: "exit-group",
+      name: "Exit",
+      type: "fallback",
+      members: ["exit-1", "exit-2"]
+    }],
+    chains: [{
+      id: "entry-to-exit",
+      hops: [{ id: "entry" }, { group: "exit-group" }]
+    }]
+  });
+  assert.equal(result.config.proxies.find((p) => p.name === "exit-1")["dialer-proxy"], "entry");
+  assert.equal(result.chains[0].hops.join(","), "entry,exit-1");
+});
+
+test("fails closed when a configured chain is missing a node", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "entry", protocol: "socks", server: "entry.example", port: 1080 }],
+    chains: [{ id: "broken", hops: [{ id: "entry" }, { id: "missing" }] }]
+  }), /chain broken cannot be safely compiled.*chain node not found/);
+});
+
+test("fails closed when routing references a missing chain", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [{ id: "entry", protocol: "socks", server: "entry.example", port: 1080 }],
+    routing: {
+      rules: [{
+        id: "chain-rule",
+        name: "Chain rule",
+        order: 1,
+        match: { domain_suffix: ["example.com"] },
+        action: { type: "chain", target: "missing" }
+      }]
+    }
+  }), /routing references missing chain/);
 });
