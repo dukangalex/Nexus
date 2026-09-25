@@ -1,3 +1,4 @@
+import test from "node:test";
 import assert from "node:assert/strict";
 import { NodeStates, canTransition, getNodeState, isNodeUsable, nodeStatePenalty, transitionNodeState } from "../src/core/node-state.js";
 
