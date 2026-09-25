@@ -57,3 +57,28 @@ test("rewrites node route targets to kernel-visible names and fails closed on un
     routing: { defaultAction: { type: "route", target: "missing" } }
   }), /routing references missing node or group: missing/);
 });
+
+
+test("normalizes group members when node names differ from canonical IDs", () => {
+  const mihomo = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "node-1", name: "US 01", protocol: "socks", server: "us.example", port: 1080 }],
+    groups: [{ id: "us", type: "select", members: ["node-1"] }]
+  });
+  assert.deepEqual(mihomo.config["proxy-groups"][0].proxies, ["US 01"]);
+
+  const singBox = compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [{ id: "node-1", name: "US 01", protocol: "socks", server: "us.example", port: 1080 }],
+    groups: [{ id: "us", type: "select", members: ["node-1"] }]
+  });
+  assert.deepEqual(singBox.config.outbounds.find((outbound) => outbound.tag === "us").outbounds, ["US 01"]);
+});
+
+test("fails closed when a group references an unknown member", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "node-1", protocol: "socks", server: "us.example", port: 1080 }],
+    groups: [{ id: "us", type: "select", members: ["missing"] }]
+  }), /group references missing node or group: missing/);
+});
