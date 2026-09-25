@@ -1,4 +1,6 @@
 import { validateChain } from "../../core/chain.js";
+import { Kernels } from "../../core/model.js";
+import { compileRoutingPolicy } from "../../core/routing-compiler.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
 function requireProxy(config, id) {
@@ -87,7 +89,7 @@ function compileNode(node) {
 }
 export function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
-  if (config.routing && Object.keys(config.routing).length) output.routing = clone(config.routing);
+  if (config.routing && Object.keys(config.routing).length) {\n    output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };\n    const actions = (config.routing.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);\n    if (actions.includes("reject")) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });\n    if (actions.includes("bypass")) output.outbounds.push({ protocol: "freedom", tag: "Nexus-Direct" });\n    if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });\n  }
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   return output;
 }
