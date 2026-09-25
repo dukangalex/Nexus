@@ -17,8 +17,7 @@ test("policy engine selects the first matching rule by order", () => {
 
 test("policy engine supports domain keyword matching", () => {
   const result = resolveRoutingPolicy({
-    rules: [{ id: "ai", name: "AI", order: 1, match: { domain_keyword: ["openai"] }, action: { type: "route", target: "AI" } }],
-    defaultAction: { type: "reject" }
+    rules: [{ id: "ai", name: "AI", order: 1, match: { domain_keyword: ["openai"] }, action: { type: "route", target: "AI" } }]
   }, { domain: "api.openai.com" });
   assert.equal(result.action.target, "AI");
 });
@@ -50,18 +49,37 @@ test("policy target resolves through the built-in group engine", () => {
   assert.equal(result.action.group, "US");
 });
 
-test("chain policy targets also resolve through the group engine", () => {
+test("chain policy targets resolve through Chain Resolution when a chain definition is supplied", () => {
   const result = resolveRoutingDecision({
-    rules: [{ id: "chain", name: "Chain", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "chain", target: "Entry" } }],
+    rules: [{ id: "chain", name: "Chain", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "chain", target: "US-to-JP" } }],
     defaultAction: { type: "reject" }
   }, { domain: "www.example.com" }, {
-    groups: { Entry: { id: "Entry", name: "Entry", type: "fallback", members: ["entry-1", "entry-2"] } },
-    nodes: [{ id: "entry-1", state: "failed" }, { id: "entry-2", state: "available" }]
+    chains: {
+      "US-to-JP": { id: "US-to-JP", chain: [{ group: "US" }, { id: "jp-1" }] }
+    },
+    groups: {
+      US: { id: "US", name: "US", type: "fallback", members: ["us-1", "us-2"] }
+    },
+    nodes: [
+      { id: "us-1", state: "failed" },
+      { id: "us-2", state: "available" },
+      { id: "jp-1", state: "available" }
+    ]
   });
   assert.equal(result.ok, true);
   assert.equal(result.action.type, "chain");
-  assert.equal(result.action.target, "entry-2");
-  assert.equal(result.action.group, "Entry");
+  assert.equal(result.action.target, "US-to-JP");
+  assert.deepEqual(result.hops.map((node) => node.id), ["us-2", "jp-1"]);
+});
+
+test("chain policy fails closed when the chain definition is missing", () => {
+  const result = resolveRoutingDecision({
+    rules: [{ id: "chain", name: "Chain", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "chain", target: "missing" } }],
+    defaultAction: { type: "reject" }
+  }, { domain: "www.example.com" }, { chains: {} });
+  assert.equal(result.ok, false);
+  assert.equal(result.action.type, "reject");
+  assert.match(result.error, /chain not found/);
 });
 
 test("policy rejects when a referenced group has no usable member", () => {
