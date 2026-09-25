@@ -113,11 +113,14 @@ export function compileXrayChain(config, chain) {
   const output = clone(config) || {};
   output.outbounds = Array.isArray(output.outbounds) ? output.outbounds.map(clone) : [];
   for (let i = 1; i < chain.hops.length; i++) {
-    const current = chain.hops[i], dialer = chain.hops[i - 1], outbound = requireProxy(output, current.id);
+    const current = chain.hops[i], dialer = chain.hops[i - 1];
+    const outbound = requireProxy(output, current.name || current.id);
     outbound.streamSettings = clone(outbound.streamSettings) || {};
     outbound.streamSettings.sockopt = clone(outbound.streamSettings.sockopt) || {};
-    outbound.streamSettings.sockopt.dialerProxy = dialer.id;
-    output.outbounds[output.outbounds.findIndex((o) => o && o.tag === current.id)] = outbound;
+    outbound.streamSettings.sockopt.dialerProxy = dialer.name || dialer.id;
+    const index = output.outbounds.findIndex((o) => o && o.tag === (current.name || current.id));
+    if (index < 0) throw new Error("Xray outbound not found: " + (current.name || current.id));
+    output.outbounds[index] = outbound;
   }
   return output;
 }
