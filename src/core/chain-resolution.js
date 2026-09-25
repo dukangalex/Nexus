@@ -1,4 +1,5 @@
 import { result } from "./model.js";
+import { isNodeUsable, nodeStatePenalty } from "./node-state.js";
 
 const DEFAULT_MAX_DEPTH = 16;
 
@@ -18,17 +19,6 @@ function groupById(groups) {
   return new Map(Object.entries(groups || {}).filter((entry) => entry[1] && entry[1].id).map((entry) => [entry[0], entry[1]]));
 }
 
-function stateOf(node, states) {
-  if (states && typeof states === "object") {
-    const explicit = states instanceof Map ? states.get(node.id) : states[node.id];
-    if (typeof explicit === "string") return explicit.toLowerCase();
-    if (explicit && typeof explicit === "object" && typeof explicit.state === "string") return explicit.state.toLowerCase();
-  }
-  return text(node.state).toLowerCase();
-}
-function usable(node, states) {
-  return Boolean(node && node.id) && stateOf(node, states) !== "failed" && stateOf(node, states) !== "disabled";
-}
 function latencyOf(node) {
   for (const value of [node && node.latencyMs, node && node.latency, node && node.probe && node.probe.latencyMs, node && node.health && node.health.latencyMs]) {
     const number = Number(value);
@@ -36,9 +26,11 @@ function latencyOf(node) {
   }
   return Number.POSITIVE_INFINITY;
 }
-function score(node) {
-  return latencyOf(node) + (text(node && node.state).toLowerCase() === "degraded" ? 5000 : 0);
+
+function score(node, states) {
+  return latencyOf(node) + nodeStatePenalty(node, states);
 }
+
 function deterministicIndex(nodes, key) {
   const textKey = text(key);
   if (!textKey) return 0;
@@ -49,6 +41,7 @@ function deterministicIndex(nodes, key) {
   }
   return (hash >>> 0) % nodes.length;
 }
+
 function selectMember(group, candidates, context) {
   const options = group && group.options && typeof group.options === "object" ? group.options : {};
   if (!candidates.length) return null;
@@ -57,7 +50,9 @@ function selectMember(group, candidates, context) {
     if (selected) return candidates.find((node) => node.id === selected) || null;
     return candidates[0];
   }
-  if (group.type === "url_test" || group.type === "region") return candidates.slice().sort((a, b) => score(a) - score(b))[0];
+  if (group.type === "url_test" || group.type === "region") {
+    return candidates.slice().sort((a, b) => score(a, context.states) - score(b, context.states))[0];
+  }
   if (group.type === "fallback") return candidates[0];
   if (group.type === "load_balance") {
     const index = Number.isInteger(context.index) ? Math.abs(context.index) % candidates.length : deterministicIndex(candidates, context.key);
@@ -65,22 +60,25 @@ function selectMember(group, candidates, context) {
   }
   return null;
 }
+
 function resolveGroup(group, context, stack, depth) {
   const id = text(group && group.id);
   if (!id) return result(false, {}, "chain group requires id");
   if (group.enabled === false) return result(false, {}, "chain group is disabled: " + id);
   if (stack.has(id)) return result(false, {}, "chain group cycle detected: " + id);
   if (depth > context.maxDepth) return result(false, {}, "chain resolution depth exceeded");
+
   const nextStack = new Set(stack);
   nextStack.add(id);
   const members = Array.isArray(group.members) ? group.members : [];
   const candidates = [];
+
   for (const rawMember of members) {
     const memberId = text(rawMember);
     if (!memberId) continue;
     const node = context.nodesById.get(memberId);
     if (node) {
-      if (usable(node, context.states)) candidates.push(node);
+      if (isNodeUsable(node, context.states)) candidates.push(node);
       continue;
     }
     const child = context.groups.get(memberId);
@@ -89,14 +87,17 @@ function resolveGroup(group, context, stack, depth) {
     if (!selected.ok || !selected.data.hop) continue;
     candidates.push(selected.data.hop);
   }
+
   const unique = [...new Map(candidates.map((node) => [node.id, node])).values()];
   const member = selectMember(group, unique, context);
   if (!member) return result(false, {}, "chain group has no usable member: " + id);
   return result(true, { hop: member, source: "group", groupId: id });
 }
+
 function resolveHop(hop, context, stack, depth) {
   if (!hop || typeof hop !== "object") return result(false, {}, "invalid chain hop");
   if (depth > context.maxDepth) return result(false, {}, "chain resolution depth exceeded");
+
   if (Array.isArray(hop.chain)) {
     const chainId = text(hop.id) || "<anonymous>";
     if (stack.has(chainId)) return result(false, {}, "chain cycle detected: " + chainId);
@@ -104,19 +105,22 @@ function resolveHop(hop, context, stack, depth) {
     nextStack.add(chainId);
     return resolveChainInternal(hop.chain, context, nextStack, depth + 1);
   }
+
   const groupId = text(hop.group || hop.groupId);
   if (groupId) {
     const group = context.groups.get(groupId);
     if (!group) return result(false, {}, "chain group not found: " + groupId);
     return resolveGroup(group, context, stack, depth);
   }
+
   const id = text(hop.id);
   if (!id) return result(false, {}, "chain hop requires id, group, or nested chain");
   const node = context.nodesById.get(id);
   if (!node) return result(false, {}, "chain node not found: " + id);
-  if (!usable(node, context.states)) return result(false, {}, "chain node is unavailable: " + id);
+  if (!isNodeUsable(node, context.states)) return result(false, {}, "chain node is unavailable: " + id);
   return result(true, { hop: node, source: "node" });
 }
+
 function resolveChainInternal(hops, context, stack, depth) {
   if (!Array.isArray(hops) || hops.length < 2) return result(false, {}, "chain requires at least two resolved hops");
 
@@ -126,6 +130,7 @@ function resolveChainInternal(hops, context, stack, depth) {
     const selected = resolveHop(hop, context, stack, depth);
     if (!selected.ok) return selected;
     const value = selected.data;
+
     if (Array.isArray(value.hops)) {
       for (const nested of value.hops) {
         if (!nested || !nested.id) return result(false, {}, "nested chain contains invalid node");
@@ -135,6 +140,7 @@ function resolveChainInternal(hops, context, stack, depth) {
       }
       continue;
     }
+
     const node = value.hop;
     if (!node || !node.id) return result(false, {}, "resolved chain hop has no node id");
     if (seenNodes.has(node.id)) return result(false, {}, "duplicate/self chain detected: " + node.id);
