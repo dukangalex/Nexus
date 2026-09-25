@@ -29,7 +29,15 @@ function resolveConfiguredChains(config) {
   }
   return resolved;
 }
-function rewriteAction(action, chains, groups) {
+function nodeTargetMap(config) {
+  const map = new Map();
+  for (const node of Array.isArray(config.nodes) ? config.nodes : []) {
+    if (!node || !node.id) continue;
+    map.set(String(node.id).trim(), String(node.name || node.id).trim());
+  }
+  return map;
+}
+function rewriteAction(action, chains, groups, nodes) {
   if (!action || typeof action !== "object") return action;
   if (action.type === "chain") {
     const target = String(action.target || "").trim();
@@ -37,20 +45,22 @@ function rewriteAction(action, chains, groups) {
     if (!chain) throw new Error("routing references missing chain: " + target);
     const finalHop = chain.hops[chain.hops.length - 1];
     if (!finalHop?.id) throw new Error("routing chain has no final hop: " + target);
-    return { ...clone(action), type: "route", target: finalHop.id };
+    return { ...clone(action), type: "route", target: nodes.get(finalHop.id) || finalHop.id };
   }
   if (action.type === "route") {
     const target = String(action.target || "").trim();
     if (!target) throw new Error("routing route action requires target");
-    return { ...clone(action), target: groups.targetMap.get(target) || target };
+    const resolved = groups.targetMap.get(target) || nodes.get(target);
+    if (!resolved) throw new Error("routing references missing node or group: " + target);
+    return { ...clone(action), target: resolved };
   }
   return clone(action);
 }
-function routingForKernel(routing, chains, groups) {
+function routingForKernel(routing, chains, groups, nodes) {
   const source = clone(routing || {});
   if (!source || typeof source !== "object") return source;
-  if (Array.isArray(source.rules)) source.rules = source.rules.map((rule) => rule && rule.action ? { ...rule, action: rewriteAction(rule.action, chains, groups) } : rule);
-  if (source.defaultAction) source.defaultAction = rewriteAction(source.defaultAction, chains, groups);
+  if (Array.isArray(source.rules)) source.rules = source.rules.map((rule) => rule && rule.action ? { ...rule, action: rewriteAction(rule.action, chains, groups, nodes) } : rule);
+  if (source.defaultAction) source.defaultAction = rewriteAction(source.defaultAction, chains, groups, nodes);
   return source;
 }
 function compileResolvedChains(adapter, compiled, chains) {
@@ -72,10 +82,11 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   }
   const resolvedChains = resolveConfiguredChains(config);
   const compiledGroups = compileGroups(config.groups, kernel);
+  const nodeTargets = nodeTargetMap(config);
   const kernelConfig = {
     ...config,
     groups: compiledGroups.groups,
-    routing: routingForKernel(config.routing, resolvedChains, compiledGroups),
+    routing: routingForKernel(config.routing, resolvedChains, compiledGroups, nodeTargets),
   };
   const compiledBase = adapter.compileConfig(kernelConfig);
   const compiled = resolvedChains.size ? compileResolvedChains(adapter, compiledBase, resolvedChains) : compiledBase;
