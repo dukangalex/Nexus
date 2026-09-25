@@ -50,101 +50,129 @@ function normalizeType(group) {
   return clean(group.type).toLowerCase();
 }
 
-function targetMaps(groups, nodes, kernel, states) {
-  const nodeTargets = new Map();
+function nodeTargetMap(nodes, states) {
+  const map = new Map();
   for (const node of Array.isArray(nodes) ? nodes : []) {
     if (!usableNode(node, states)) continue;
     const id = String(node.id).trim();
-    const target = clean(node.name) || id;
-    nodeTargets.set(id, target);
+    map.set(id, clean(node.name) || id);
   }
-
-  const groupTargets = new Map();
-  for (const group of groups) {
-    if (!group || !group.id || group.enabled === false) continue;
-    groupTargets.set(String(group.id).trim(), kernel === Kernels.MIHOMO ? clean(group.name) || group.id : group.id);
-  }
-
-  return { nodeTargets, groupTargets };
+  return map;
 }
 
-function resolveMembers(group, maps) {
-  return requireMembers(group).map((member) => {
-    if (maps.nodeTargets.has(member)) return maps.nodeTargets.get(member);
-    if (maps.groupTargets.has(member)) return maps.groupTargets.get(member);
-    throw new Error("group references missing node or group: " + member);
-  });
+function compileGroupDefinitions(definitions, nodes, states, kernel) {
+  const byId = new Map(definitions.map((group) => [String(group.id).trim(), group]));
+  const nodeTargets = nodeTargetMap(nodes, states);
+  const active = new Map();
+  const resolving = new Set();
+  const inactive = new Set();
+
+  function resolveMembers(group) {
+    const resolved = [];
+    for (const member of requireMembers(group)) {
+      if (nodeTargets.has(member)) {
+        resolved.push(nodeTargets.get(member));
+        continue;
+      }
+      const child = byId.get(member);
+      if (!child) throw new Error("group references missing node or group: " + member);
+      if (child.enabled === false) {
+        inactive.add(member);
+        continue;
+      }
+      if (resolving.has(member)) throw new Error("group reference cycle: " + member);
+      const childMembers = resolve(child);
+      if (!childMembers.length) {
+        inactive.add(member);
+        continue;
+      }
+      resolved.push(child.kernelTarget);
+    }
+    return [...new Set(resolved)];
+  }
+
+  function resolve(group) {
+    const id = String(group.id).trim();
+    if (inactive.has(id)) return [];
+    if (active.has(id)) return active.get(id).members;
+    if (resolving.has(id)) throw new Error("group reference cycle: " + id);
+    resolving.add(id);
+    const members = resolveMembers(group);
+    resolving.delete(id);
+    if (!members.length) {
+      inactive.add(id);
+      return [];
+    }
+    const record = {
+      ...group,
+      kernelTarget: kernel === Kernels.MIHOMO ? clean(group.name) || id : id,
+      members
+    };
+    active.set(id, record);
+    return members;
+  }
+
+  for (const group of definitions) {
+    if (!group || group.enabled === false) continue;
+    const type = normalizeType(group);
+    if (!type) throw new Error("group type is required: " + group.id);
+    const members = resolve(group);
+    if (!members.length && type !== "region") throw new Error("group has no usable members: " + group.id);
+  }
+
+  return { active, inactive };
 }
 
 export function compileGroups(groups, kernel, nodes = [], states) {
   const definitions = groupList(groups);
   const output = [];
   const targetMap = new Map();
-  const maps = targetMaps(definitions, nodes, kernel, states);
+  const resolved = compileGroupDefinitions(definitions, nodes, states, kernel);
 
   for (const group of definitions) {
     if (group.enabled === false) continue;
-
+    const id = String(group.id).trim();
+    const record = resolved.active.get(id);
     const type = normalizeType(group);
-    if (!type) throw new Error("group type is required: " + group.id);
-    const directNodes = new Map(
-      (Array.isArray(nodes) ? nodes : [])
-        .filter((node) => node && node.id)
-        .map((node) => [String(node.id).trim(), node])
-    );
-    const usableReferences = requireMembers(group).filter((member) => {
-      const node = directNodes.get(member);
-      return !node || usableNode(node, states);
-    });
-    if (!usableReferences.length) {
+    if (!record) {
       if (type === "region") continue;
       throw new Error("group has no usable members: " + group.id);
     }
-    const members = [...new Set(resolveMembers({ ...group, members: usableReferences }, maps))];
-    if (!members.length) throw new Error("group has no usable members: " + group.id);
+    const members = record.members;
 
     if (kernel === Kernels.MIHOMO) {
       if (!MIHOMO_TYPES.has(type)) throw new Error("unsupported Mihomo group type: " + type);
-
       const compiled = {
         name: clean(group.name) || group.id,
         type: type === "url_test" ? "url-test" : type === "load_balance" ? "load-balance" : type,
         proxies: members,
       };
-
       copyOptions(compiled, group.options || {}, [
         "url", "interval", "timeout", "tolerance", "lazy", "disable-udp", "max-failed-times",
         "hidden", "expected-status", "filter", "exclude-filter", "include-all", "include-all-proxies",
       ]);
-
       output.push(compiled);
-      targetMap.set(group.id, compiled.name);
+      targetMap.set(id, compiled.name);
       continue;
     }
 
     if (kernel === Kernels.SING_BOX) {
       if (!SING_BOX_TYPES.has(type)) throw new Error("unsupported sing-box group type without semantic downgrade: " + type);
-
       const compiled = {
         type: type === "url_test" ? "urltest" : type === "load_balance" ? "loadbalance" : "selector",
-        tag: group.id,
+        tag: id,
         outbounds: members,
       };
-
       copyOptions(compiled, group.options || {}, [
         "url", "interval", "idle_timeout", "tolerance", "interrupt_exist_connections",
         "filter", "exclude", "strategy", "detour",
       ]);
-
       output.push(compiled);
-      targetMap.set(group.id, group.id);
+      targetMap.set(id, id);
       continue;
     }
 
-    if (kernel === Kernels.XRAY) {
-      throw new Error("Xray does not support unified group type without semantic downgrade: " + type);
-    }
-
+    if (kernel === Kernels.XRAY) throw new Error("Xray does not support unified group type without semantic downgrade: " + type);
     throw new Error("unsupported kernel for group compilation: " + kernel);
   }
 
