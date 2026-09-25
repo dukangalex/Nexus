@@ -26,7 +26,7 @@ export function filterGroupMembers(nodes,states){const seen=new Set();return (Ar
 
 function capabilitySet(node){const values=node&&(node.capabilities||(node.metadata&&node.metadata.capabilities));return new Set(Array.isArray(values)?values.map(value=>clean(value).toLowerCase()):[]);}
 function capabilityAllowed(node,required){const wanted=Array.isArray(required)?required.map(value=>clean(value).toLowerCase()).filter(Boolean):[];if(!wanted.length)return true;const available=capabilitySet(node);return wanted.every(capability=>available.has(capability));}
-function availableNodes(group,nodes,states){const byId=new Map((Array.isArray(nodes)?nodes:[]).filter(node=>node&&node.id).map(node=>[node.id,node]));return group.members.map(id=>byId.get(id)).filter(node=>usable(node,states)).filter(node=>capabilityAllowed(node,group.options.requiredCapabilities));}
+function availableNodes(group,nodes,states){const byId=new Map((Array.isArray(nodes)?nodes:[]).filter(node=>node&&node.id).map(node=>[node.id,node]));const options=group&&group.options&&typeof group.options==="object"?group.options:{};return group.members.map(id=>byId.get(id)).filter(node=>usable(node,states)).filter(node=>capabilityAllowed(node,options.requiredCapabilities));}
 function latencyOf(node){for(const value of [node&&node.latencyMs,node&&node.latency,node&&node.probe&&node.probe.latencyMs,node&&node.health&&node.health.latencyMs]){const number=Number(value);if(Number.isFinite(number)&&number>=0)return number;}return Number.POSITIVE_INFINITY;}
 function score(node){return latencyOf(node)+(clean(node&&node.state)==="degraded"?DEGRADED_PENALTY_MS:0);}
 function stableMemberOrder(nodes){return nodes.map((node,index)=>({node,index})).sort((a,b)=>{const delta=score(a.node)-score(b.node);return delta!==0?delta:a.index-b.index;}).map(entry=>entry.node);}
@@ -36,8 +36,9 @@ export function resolveGroupMember(group,nodes=[],states,context={}) {
   if(!group||group.enabled===false)return {ok:false,member:null,reason:"group is disabled or missing"};
   const candidates=availableNodes(group,nodes,states);
   if(!candidates.length)return {ok:false,member:null,reason:"no usable group members"};
+  const options=group.options&&typeof group.options==="object"?group.options:{};
   if(group.type==="select"){
-    const selected=clean(context.selected||group.options.selected);
+    const selected=clean(context.selected||options.selected);
     if(selected){const member=candidates.find(node=>node.id===selected);if(!member)return {ok:false,member:null,reason:"selected member is unavailable or lacks required capabilities"};return {ok:true,member,reason:"selected"};}
     return {ok:true,member:candidates[0],reason:"first usable member"};
   }
