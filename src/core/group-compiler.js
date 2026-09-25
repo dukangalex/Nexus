@@ -92,13 +92,20 @@ export function compileGroups(groups, kernel, nodes = [], states) {
   const output = [];
   const targetMap = new Map();
   const resolved = compileGroupDefinitions(definitions, nodes, states, kernel);
+  const nestedGroupIds = new Set();
+  for (const group of definitions) {
+    for (const member of Array.isArray(group.members) ? group.members : []) {
+      const id = clean(member);
+      if (id && definitions.some((candidate) => String(candidate.id).trim() === id)) nestedGroupIds.add(id);
+    }
+  }
   for (const group of definitions) {
     if (group.enabled === false) continue;
     const id = String(group.id).trim();
     const record = resolved.active.get(id);
     const type = normalizeType(group);
     if (!record) {
-      if (type === "region") continue;
+      if (type === "region" || nestedGroupIds.has(id)) continue;
       throw new Error("group has no usable members: " + group.id);
     }
     const members = record.members;
