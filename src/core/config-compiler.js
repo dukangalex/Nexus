@@ -1,5 +1,6 @@
 import { adapterFor } from "../adapters/index.js";
 import { AdapterCapabilities, hasAdapterCapability } from "../adapters/contract.js";
+import { compileGroups } from "./group-compiler.js";
 import { resolveChain } from "./chain-resolution.js";
 import { validateUnifiedCompatibility } from "./compatibility.js";
 import { validateCompiledConfig } from "./compiled-config-validation.js";
@@ -28,21 +29,28 @@ function resolveConfiguredChains(config) {
   }
   return resolved;
 }
-function rewriteAction(action, chains) {
+function rewriteAction(action, chains, groups) {
   if (!action || typeof action !== "object") return action;
-  if (action.type !== "chain") return clone(action);
-  const target = String(action.target || "").trim();
-  const chain = chains.get(target);
-  if (!chain) throw new Error("routing references missing chain: " + target);
-  const finalHop = chain.hops[chain.hops.length - 1];
-  if (!finalHop?.id) throw new Error("routing chain has no final hop: " + target);
-  return { ...clone(action), type: "route", target: finalHop.id };
+  if (action.type === "chain") {
+    const target = String(action.target || "").trim();
+    const chain = chains.get(target);
+    if (!chain) throw new Error("routing references missing chain: " + target);
+    const finalHop = chain.hops[chain.hops.length - 1];
+    if (!finalHop?.id) throw new Error("routing chain has no final hop: " + target);
+    return { ...clone(action), type: "route", target: finalHop.id };
+  }
+  if (action.type === "route") {
+    const target = String(action.target || "").trim();
+    if (!target) throw new Error("routing route action requires target");
+    return { ...clone(action), target: groups.targetMap.get(target) || target };
+  }
+  return clone(action);
 }
-function routingForKernel(routing, chains) {
+function routingForKernel(routing, chains, groups) {
   const source = clone(routing || {});
   if (!source || typeof source !== "object") return source;
-  if (Array.isArray(source.rules)) source.rules = source.rules.map((rule) => rule && rule.action ? { ...rule, action: rewriteAction(rule.action, chains) } : rule);
-  if (source.defaultAction) source.defaultAction = rewriteAction(source.defaultAction, chains);
+  if (Array.isArray(source.rules)) source.rules = source.rules.map((rule) => rule && rule.action ? { ...rule, action: rewriteAction(rule.action, chains, groups) } : rule);
+  if (source.defaultAction) source.defaultAction = rewriteAction(source.defaultAction, chains, groups);
   return source;
 }
 function compileResolvedChains(adapter, compiled, chains) {
@@ -63,10 +71,23 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     throw new Error("configuration is not safely compilable for " + kernel + (details.length ? ": " + details.join(", ") : ""));
   }
   const resolvedChains = resolveConfiguredChains(config);
-  const kernelConfig = { ...config, routing: routingForKernel(config.routing, resolvedChains) };
+  const compiledGroups = compileGroups(config.groups, kernel);
+  const kernelConfig = {
+    ...config,
+    groups: compiledGroups.groups,
+    routing: routingForKernel(config.routing, resolvedChains, compiledGroups),
+  };
   const compiledBase = adapter.compileConfig(kernelConfig);
   const compiled = resolvedChains.size ? compileResolvedChains(adapter, compiledBase, resolvedChains) : compiledBase;
   const validation = validateCompiledConfig(compiled, kernel);
   if (!validation.ok) throw new Error("compiled configuration failed structural validation for " + kernel + ": " + validation.errors.join("; "));
-  return { kernel, status: "compiled", config: compiled, validation, compatibility, chains: [...resolvedChains.values()].map((chain) => ({ id: chain.id, mode: chain.mode, hops: chain.hops.map((node) => node.id) })) };
+  return {
+    kernel,
+    status: "compiled",
+    config: compiled,
+    validation,
+    compatibility,
+    groups: [...compiledGroups.targetMap.entries()].map(([id, target]) => ({ id, target })),
+    chains: [...resolvedChains.values()].map((chain) => ({ id: chain.id, mode: chain.mode, hops: chain.hops.map((node) => node.id) })),
+  };
 }
