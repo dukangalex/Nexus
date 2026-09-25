@@ -1,4 +1,5 @@
 import { createRoutingPolicy, validateRoutingPolicy } from "./routing-policy.js";
+import { resolveGroupMember } from "./group.js";
 
 function values(value) { return Array.isArray(value) ? value : [value]; }
 function normalize(value) { return String(value ?? "").toLowerCase(); }
@@ -63,8 +64,8 @@ export function resolvePolicyTarget(result, options = {}) {
   if ((action.type !== "route" && action.type !== "chain") || !options.groups) return result;
   const group = groupForTarget(options.groups, action.target);
   if (!group) return result;
-  if (typeof options.resolveGroupMember !== "function") return { ok: false, action: { type: "reject" }, rule: result.rule || null, error: "group resolver is required" };
-  const selected = options.resolveGroupMember(group, options.nodes || [], options.states, options.groupContext || {});
+  const resolver = typeof options.resolveGroupMember === "function" ? options.resolveGroupMember : resolveGroupMember;
+  const selected = resolver(group, options.nodes || [], options.states, options.groupContext || {});
   if (!selected || selected.ok !== true || !selected.member || !selected.member.id) return { ok: false, action: { type: "reject" }, rule: result.rule || null, error: selected?.reason || "no usable group member" };
   return { ...result, action: { ...action, target: selected.member.id, group: group.id }, group, member: selected.member, selectionReason: selected.reason };
 }
