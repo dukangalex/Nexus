@@ -53,7 +53,7 @@ export function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
-  if (config.routing && Object.keys(config.routing).length) output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);
+  if (config.routing && Object.keys(config.routing).length) {\n    output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);\n    const fallback = config.routing.defaultAction;\n    if (fallback) {\n      if (fallback.type === "route") output.rules.push("MATCH," + fallback.target);\n      else if (fallback.type === "reject") output.rules.push("MATCH,REJECT");\n      else throw new Error("unsupported Mihomo default routing action: " + fallback.type);\n    }\n  }
   return output;
 }
 export function compileMihomoChain(config, chain) {
