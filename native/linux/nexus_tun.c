@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <linux/if_tun.h>
+#include <net/if.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <string.h>
