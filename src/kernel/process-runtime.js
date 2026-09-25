@@ -5,7 +5,7 @@ const DEFAULT_LOG_LIMIT = 500;
 function redact(text) {
   return String(text)
     .replace(/([?&](?:password|token|secret|uuid|key)=)[^&\s]+/gi, "$1[REDACTED]")
-    .replace(/("?(?:password|token|secret|uuid|private_key)"?\s*[:=]\s*")([^"]*)(")/gi, "$1[REDACTED]$3");
+    .replace(/("?(?:password|token|secret|uuid|private_key)"?\s*[:=]\s*)([^\s,;}]+)/gi, "$1[REDACTED]");
 }
 
 export function createProcessKernelRuntime(options = {}) {
