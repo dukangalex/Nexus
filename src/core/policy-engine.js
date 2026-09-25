@@ -11,7 +11,13 @@ function normalize(value) {
 function includesMatch(expected, actual) {
   if (expected === undefined) return true;
   const actualValues = values(actual).map(normalize);
-  return values(expected).some((item) => actualValues.includes(normalize(item)));
+  const expectedValues = values(expected).map(normalize);
+  const positive = expectedValues.filter((item) => !item.startsWith("!"));
+  const negative = expectedValues.filter((item) => item.startsWith("!")).map((item) => item.slice(1));
+
+  if (negative.some((item) => actualValues.includes(item))) return false;
+  if (!positive.length) return true;
+  return positive.some((item) => actualValues.includes(item));
 }
 
 function domainSuffix(actual, expected) {
