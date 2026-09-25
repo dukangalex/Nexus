@@ -17,6 +17,41 @@ export const PlatformCapabilities = Object.freeze({
   SECURE_STORAGE: "secure-storage",
 });
 
+const CAPABILITY_METHODS = Object.freeze({
+  [PlatformCapabilities.TUN]: Object.freeze(["startTun", "stopTun"]),
+  [PlatformCapabilities.SYSTEM_PROXY]: Object.freeze(["setSystemProxy"]),
+  [PlatformCapabilities.APP_EXCLUSION]: Object.freeze(["setAppExclusions"]),
+  [PlatformCapabilities.PROCESS_EXCLUSION]: Object.freeze(["setProcessExclusions"]),
+  [PlatformCapabilities.NETWORK_MONITOR]: Object.freeze(["subscribeNetworkState"]),
+  [PlatformCapabilities.BACKGROUND_SERVICE]: Object.freeze([
+    "startBackgroundService",
+    "stopBackgroundService",
+  ]),
+  [PlatformCapabilities.NOTIFICATIONS]: Object.freeze(["notify"]),
+  [PlatformCapabilities.SECURE_STORAGE]: Object.freeze([
+    "getSecureValue",
+    "setSecureValue",
+    "deleteSecureValue",
+  ]),
+});
+
+function validateCapabilityMethods(implementation, capabilities) {
+  for (const capability of capabilities) {
+    const methods = CAPABILITY_METHODS[capability];
+    if (!methods) {
+      throw new TypeError("unsupported platform capability: " + capability);
+    }
+
+    for (const method of methods) {
+      if (typeof implementation[method] !== "function") {
+        throw new TypeError(
+          "platform capability " + capability + " requires method: " + method,
+        );
+      }
+    }
+  }
+}
+
 export function createPlatformContract(implementation) {
   if (!implementation || typeof implementation !== "object") {
     throw new TypeError("platform implementation is required");
@@ -40,8 +75,23 @@ export function createPlatformContract(implementation) {
     throw new TypeError("unsupported platform: " + implementation.platform);
   }
 
+  if (!Array.isArray(implementation.capabilities)) {
+    throw new TypeError("platform capabilities must be an array");
+  }
+
+  const capabilities = [...new Set(implementation.capabilities)];
+  validateCapabilityMethods(implementation, capabilities);
+
   return Object.freeze({
     ...implementation,
-    capabilities: Object.freeze([...(implementation.capabilities || [])]),
+    capabilities: Object.freeze(capabilities),
   });
+}
+
+export function getPlatformCapabilityRequirements(capability) {
+  const methods = CAPABILITY_METHODS[capability];
+  if (!methods) {
+    throw new TypeError("unsupported platform capability: " + capability);
+  }
+  return Object.freeze([...methods]);
 }
