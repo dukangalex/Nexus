@@ -33,11 +33,23 @@ export function canDecideAutomatically(action) {
   return AUTO_ACTIONS.includes(action) && !requiresUserConfirmation(action);
 }
 
-export function createDecisionPrompt(action, options = []) {
+export function createDecisionPrompt(action, options = [], context = {}) {
+  const userControlled = USER_DECISIONS.includes(action) || requiresUserConfirmation(action);
   return Object.freeze({
     action,
-    requiresUserChoice: USER_DECISIONS.includes(action) || requiresUserConfirmation(action),
-    options: Object.freeze([...options]),
-    message: "Nexus will present available options and will not silently choose on the user's behalf."
+    requiresUserChoice: userControlled,
+    options: Object.freeze(options.map((option) => Object.freeze({ ...option }))),
+    context: Object.freeze({ ...context }),
+    message: userControlled
+      ? "Nexus will present available options, explain their effects, and wait for the user's choice."
+      : "Nexus may perform this diagnostic action automatically without changing the user's selected operating policy."
   });
+}
+
+export function assertUserChoice(action, choice) {
+  if (!USER_DECISIONS.includes(action) && !requiresUserConfirmation(action)) return choice;
+  if (choice === undefined || choice === null || choice === "") {
+    throw new Error("explicit user choice required for: " + action);
+  }
+  return choice;
 }
