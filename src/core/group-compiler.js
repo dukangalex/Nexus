@@ -1,7 +1,7 @@
 import { Kernels } from "./model.js";
 
 const MIHOMO_TYPES = new Set(["select", "url_test", "fallback", "load_balance", "region"]);
-const SING_BOX_TYPES = new Set(["select", "url_test", "fallback", "load_balance", "region"]);
+const SING_BOX_TYPES = new Set(["select", "url_test", "load_balance"]);
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -79,10 +79,10 @@ export function compileGroups(groups, kernel) {
     }
 
     if (kernel === Kernels.SING_BOX) {
-      if (!SING_BOX_TYPES.has(type)) throw new Error("unsupported sing-box group type: " + type);
+      if (!SING_BOX_TYPES.has(type)) throw new Error("unsupported sing-box group type without semantic downgrade: " + type);
 
       const compiled = {
-        type: type === "url_test" ? "urltest" : type === "load_balance" ? "loadbalance" : type,
+        type: type === "url_test" ? "urltest" : type === "load_balance" ? "loadbalance" : "selector",
         tag: group.id,
         outbounds: members,
       };
