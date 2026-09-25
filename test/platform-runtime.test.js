@@ -33,7 +33,7 @@ test("platform runtime preserves kernel lifecycle ordering", async () => {
   assert.deepEqual(await runtime.logs(), ["ok"]);
 
   await runtime.stop();
-  assert.deepEqual(events, ["kernel:start", "kernel:stop"]);
+  assert.deepEqual(events, ["kernel:start", ["reload", { version: 1 }], "kernel:stop"]);
 });
 
 test("platform runtime exposes TUN only when platform declares it", async () => {
