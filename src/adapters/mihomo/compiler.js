@@ -70,9 +70,12 @@ export function compileMihomoChain(config, chain) {
   const output = clone(config) || {};
   output.proxies = Array.isArray(output.proxies) ? output.proxies.map(clone) : [];
   for (let i = 1; i < chain.hops.length; i++) {
-    const current = chain.hops[i], dialer = chain.hops[i - 1], proxy = requireProxy(output, current.id);
-    proxy["dialer-proxy"] = dialer.id;
-    output.proxies[output.proxies.findIndex((p) => p && p.name === current.id)] = proxy;
+    const current = chain.hops[i], dialer = chain.hops[i - 1];
+    const proxy = requireProxy(output, current.name || current.id);
+    proxy["dialer-proxy"] = dialer.name || dialer.id;
+    const index = output.proxies.findIndex((p) => p && p.name === (current.name || current.id));
+    if (index < 0) throw new Error("Mihomo proxy not found: " + (current.name || current.id));
+    output.proxies[index] = proxy;
   }
   return output;
 }
