@@ -18,7 +18,15 @@ const USER_DECISIONS = Object.freeze([
   "chain",
   "bypass",
   "networkMode",
-  "securityMode"
+  "securityMode",
+  "resourceMode",
+  "backgroundMonitoring",
+  "healthCheckInterval",
+  "telemetryLevel",
+  "logLevel",
+  "connectionIdleTimeout",
+  "dnsCachePolicy",
+  "ruleSetRefreshPolicy"
 ]);
 
 export function getDecisionRegistry() {
