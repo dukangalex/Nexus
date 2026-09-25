@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveRoutingPolicy, resolveRoutingDecision } from "../src/core/policy-engine.js";
-import { resolveGroupMember } from "../src/core/group.js";
 
 test("policy engine selects the first matching rule by order", () => {
   const result = resolveRoutingPolicy({
@@ -38,23 +37,31 @@ test("global proxy requires a concrete target", () => {
   assert.equal(result.action.target, "Proxy");
 });
 
-test("policy target resolves through the group engine", () => {
+test("policy target resolves through the built-in group engine", () => {
   const result = resolveRoutingDecision({
     rules: [{ id: "us", name: "US", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "route", target: "US" } }],
     defaultAction: { type: "reject" }
   }, { domain: "www.example.com" }, {
-    groups: {
-      US: { id: "US", name: "US", type: "url_test", members: ["us-1", "us-2"] }
-    },
-    nodes: [
-      { id: "us-1", latencyMs: 80 },
-      { id: "us-2", latencyMs: 30 }
-    ],
-    resolveGroupMember
+    groups: { US: { id: "US", name: "US", type: "url_test", members: ["us-1", "us-2"] } },
+    nodes: [{ id: "us-1", latencyMs: 80 }, { id: "us-2", latencyMs: 30 }]
   });
   assert.equal(result.ok, true);
   assert.equal(result.action.target, "us-2");
   assert.equal(result.action.group, "US");
+});
+
+test("chain policy targets also resolve through the group engine", () => {
+  const result = resolveRoutingDecision({
+    rules: [{ id: "chain", name: "Chain", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "chain", target: "Entry" } }],
+    defaultAction: { type: "reject" }
+  }, { domain: "www.example.com" }, {
+    groups: { Entry: { id: "Entry", name: "Entry", type: "fallback", members: ["entry-1", "entry-2"] } },
+    nodes: [{ id: "entry-1", state: "failed" }, { id: "entry-2", state: "available" }]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.action.type, "chain");
+  assert.equal(result.action.target, "entry-2");
+  assert.equal(result.action.group, "Entry");
 });
 
 test("policy rejects when a referenced group has no usable member", () => {
@@ -63,8 +70,7 @@ test("policy rejects when a referenced group has no usable member", () => {
     defaultAction: { type: "reject" }
   }, { domain: "www.example.com" }, {
     groups: { US: { id: "US", name: "US", type: "select", members: ["us-1"] } },
-    nodes: [{ id: "us-1", state: "failed" }],
-    resolveGroupMember
+    nodes: [{ id: "us-1", state: "failed" }]
   });
   assert.equal(result.ok, false);
   assert.equal(result.action.type, "reject");
