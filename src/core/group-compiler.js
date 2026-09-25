@@ -2,6 +2,7 @@ import { Kernels } from "./model.js";
 
 const MIHOMO_TYPES = new Set(["select", "url_test", "fallback", "load_balance", "region"]);
 const SING_BOX_TYPES = new Set(["select", "url_test", "load_balance"]);
+const UNUSABLE_STATES = new Set(["failed", "disabled"]);
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -15,6 +16,19 @@ function groupList(groups) {
   if (Array.isArray(groups)) return groups.filter((group) => group && group.id);
   if (groups && typeof groups === "object") return Object.values(groups).filter((group) => group && group.id);
   return [];
+}
+
+function stateOf(node, states) {
+  if (states && typeof states === "object") {
+    const explicit = states instanceof Map ? states.get(node.id) : states[node.id];
+    if (typeof explicit === "string") return explicit.toLowerCase();
+    if (explicit && typeof explicit === "object" && typeof explicit.state === "string") return explicit.state.toLowerCase();
+  }
+  return clean(node.state).toLowerCase();
+}
+
+function usableNode(node, states) {
+  return Boolean(node && node.id) && !UNUSABLE_STATES.has(stateOf(node, states));
 }
 
 function requireMembers(group) {
@@ -36,12 +50,12 @@ function normalizeType(group) {
   return clean(group.type).toLowerCase();
 }
 
-function targetMaps(groups, nodes, kernel) {
+function targetMaps(groups, nodes, kernel, states) {
   const nodeTargets = new Map();
   for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (!node || !node.id) continue;
+    if (!usableNode(node, states)) continue;
     const id = String(node.id).trim();
-    const target = kernel === Kernels.MIHOMO ? clean(node.name) || id : clean(node.name) || id;
+    const target = clean(node.name) || id;
     nodeTargets.set(id, target);
   }
 
@@ -62,18 +76,32 @@ function resolveMembers(group, maps) {
   });
 }
 
-export function compileGroups(groups, kernel, nodes = []) {
+export function compileGroups(groups, kernel, nodes = [], states) {
   const definitions = groupList(groups);
   const output = [];
   const targetMap = new Map();
-  const maps = targetMaps(definitions, nodes, kernel);
+  const maps = targetMaps(definitions, nodes, kernel, states);
 
   for (const group of definitions) {
     if (group.enabled === false) continue;
 
     const type = normalizeType(group);
     if (!type) throw new Error("group type is required: " + group.id);
-    const members = [...new Set(resolveMembers(group, maps))];
+    const directNodes = new Map(
+      (Array.isArray(nodes) ? nodes : [])
+        .filter((node) => node && node.id)
+        .map((node) => [String(node.id).trim(), node])
+    );
+    const usableReferences = requireMembers(group).filter((member) => {
+      const node = directNodes.get(member);
+      return !node || usableNode(node, states);
+    });
+    if (!usableReferences.length) {
+      if (type === "region") continue;
+      throw new Error("group has no usable members: " + group.id);
+    }
+    const members = [...new Set(resolveMembers({ ...group, members: usableReferences }, maps))];
+    if (!members.length) throw new Error("group has no usable members: " + group.id);
 
     if (kernel === Kernels.MIHOMO) {
       if (!MIHOMO_TYPES.has(type)) throw new Error("unsupported Mihomo group type: " + type);
@@ -85,19 +113,8 @@ export function compileGroups(groups, kernel, nodes = []) {
       };
 
       copyOptions(compiled, group.options || {}, [
-        "url",
-        "interval",
-        "timeout",
-        "tolerance",
-        "lazy",
-        "disable-udp",
-        "max-failed-times",
-        "hidden",
-        "expected-status",
-        "filter",
-        "exclude-filter",
-        "include-all",
-        "include-all-proxies",
+        "url", "interval", "timeout", "tolerance", "lazy", "disable-udp", "max-failed-times",
+        "hidden", "expected-status", "filter", "exclude-filter", "include-all", "include-all-proxies",
       ]);
 
       output.push(compiled);
@@ -115,15 +132,8 @@ export function compileGroups(groups, kernel, nodes = []) {
       };
 
       copyOptions(compiled, group.options || {}, [
-        "url",
-        "interval",
-        "idle_timeout",
-        "tolerance",
-        "interrupt_exist_connections",
-        "filter",
-        "exclude",
-        "strategy",
-        "detour",
+        "url", "interval", "idle_timeout", "tolerance", "interrupt_exist_connections",
+        "filter", "exclude", "strategy", "detour",
       ]);
 
       output.push(compiled);
