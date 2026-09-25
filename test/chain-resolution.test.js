@@ -58,3 +58,47 @@ test("enforces maximum nested chain depth", () => {
   assert.equal(limited.ok, false);
   assert.match(limited.error, /depth exceeded/);
 });
+
+
+test("skips failed nested group members and keeps a healthy chain hop", () => {
+  const groups = {
+    dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }),
+    healthy: createGroup({ id: "healthy", name: "Healthy", type: "fallback", members: ["relay-ok"] }),
+    relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead", "healthy"] })
+  };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
+    nodes: [
+      { id: "entry" },
+      { id: "relay-dead", state: "failed" },
+      { id: "relay-ok", latencyMs: 20 },
+      { id: "exit" }
+    ],
+    groups,
+    states: {
+      "relay-dead": { state: "failed" },
+      "relay-ok": { state: "available" }
+    }
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data.hops.map((node) => node.id), ["entry", "relay-ok", "exit"]);
+});
+
+test("fails closed when every nested group member is unavailable", () => {
+  const groups = {
+    dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }),
+    relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead"] })
+  };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
+    nodes: [
+      { id: "entry" },
+      { id: "relay-dead" },
+      { id: "exit" }
+    ],
+    groups,
+    states: {
+      "relay-dead": "disabled"
+    }
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /no usable member/);
+});
