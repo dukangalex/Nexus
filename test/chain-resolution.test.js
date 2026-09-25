@@ -104,7 +104,7 @@ test("fails closed when every nested group member is unavailable", () => {
 
 test("uses snapshot degraded state penalty during group selection", () => {
   const groups = {
-    relay: createGroup({ id: "relay", type: "url_test", members: ["slow", "degraded"] })
+    relay: createGroup({ id: "relay", name: "Relay", type: "url_test", members: ["slow", "degraded"] })
   };
   const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
     nodes: [
