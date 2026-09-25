@@ -59,7 +59,6 @@ test("enforces maximum nested chain depth", () => {
   assert.match(limited.error, /depth exceeded/);
 });
 
-
 test("skips failed nested group members and keeps a healthy chain hop", () => {
   const groups = {
     dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }),
@@ -101,4 +100,22 @@ test("fails closed when every nested group member is unavailable", () => {
   });
   assert.equal(result.ok, false);
   assert.match(result.error, /no usable member/);
+});
+
+test("uses snapshot degraded state penalty during group selection", () => {
+  const groups = {
+    relay: createGroup({ id: "relay", type: "url_test", members: ["slow", "degraded"] })
+  };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
+    nodes: [
+      { id: "entry" },
+      { id: "slow", latencyMs: 100 },
+      { id: "degraded", latencyMs: 10 },
+      { id: "exit" }
+    ],
+    groups,
+    states: { degraded: "degraded", slow: "active" }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.hops[1].id, "slow");
 });
