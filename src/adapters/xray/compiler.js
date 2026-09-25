@@ -89,7 +89,21 @@ function compileNode(node) {
 }
 export function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
-  if (config.routing && Object.keys(config.routing).length) {\n    output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };\n    const fallback = config.routing.defaultAction;\n    if (fallback && (fallback.type === "route" || fallback.type === "chain")) {\n      output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });\n    } else if (fallback && fallback.type === "reject") {\n      output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });\n    } else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") {\n      throw new Error("unsupported Xray default routing action: " + fallback.type);\n    }\n    const actions = (config.routing.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);\n    if (actions.includes("reject")) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });\n    if (actions.includes("bypass")) output.outbounds.push({ protocol: "freedom", tag: "Nexus-Direct" });\n    if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });\n  }
+  if (config.routing && Object.keys(config.routing).length) {
+    output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };
+    const fallback = config.routing.defaultAction;
+    if (fallback && (fallback.type === "route" || fallback.type === "chain")) {
+      output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
+    } else if (fallback && fallback.type === "reject") {
+      output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
+    } else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") {
+      throw new Error("unsupported Xray default routing action: " + fallback.type);
+    }
+    const actions = (config.routing.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);
+    if (actions.includes("reject")) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });
+    if (actions.includes("bypass")) output.outbounds.push({ protocol: "freedom", tag: "Nexus-Direct" });
+    if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });
+  }
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   return output;
 }
