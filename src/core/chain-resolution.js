@@ -13,6 +13,9 @@ function nodeById(nodes) {
 
 function groupById(groups) {
   if (groups instanceof Map) return groups;
+  if (Array.isArray(groups)) {
+    return new Map(groups.filter((group) => group && group.id).map((group) => [group.id, group]));
+  }
   return new Map(Object.entries(groups || {}).filter((entry) => entry[1] && entry[1].id).map((entry) => [entry[0], entry[1]]));
 }
 
