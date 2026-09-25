@@ -176,3 +176,50 @@ test("fails closed when routing references a missing chain", () => {
     }
   }), /routing references missing chain/);
 });
+
+
+test("compiles a state-aware nested group chain consistently across kernels", () => {
+  const common = {
+    nodes: [
+      { id: "entry-id", name: "Entry Name", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "dead-id", name: "Dead Name", protocol: "socks", server: "dead.example", port: 1080 },
+      { id: "exit-id", name: "Exit Name", protocol: "socks", server: "exit.example", port: 1080 }
+    ],
+    states: { "dead-id": "failed" },
+    groups: [
+      { id: "dead-group", name: "Dead Group", type: "fallback", members: ["dead-id"] },
+      { id: "exit-group", name: "Exit Group", type: "fallback", members: ["dead-group", "exit-id"] }
+    ],
+    chains: [{ id: "entry-to-exit", hops: [{ id: "entry-id" }, { group: "exit-group" }] }],
+    routing: { rules: [{ id: "r", name: "chain", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "chain", target: "entry-to-exit" } }] }
+  };
+
+  const mihomo = compileUnifiedConfig({ ...common, kernel: Kernels.MIHOMO });
+  assert.equal(mihomo.chains[0].hops.join(","), "entry-id,exit-id");
+  assert.equal(mihomo.config.proxies.find((p) => p.name === "Exit Name")["dialer-proxy"], "Entry Name");
+  assert.equal(mihomo.config.rules[0], "DOMAIN-SUFFIX,example.com,Exit Name");
+
+  const singBox = compileUnifiedConfig({ ...common, kernel: Kernels.SING_BOX });
+  assert.equal(singBox.chains[0].hops.join(","), "entry-id,exit-id");
+  assert.equal(singBox.config.outbounds.find((o) => o.tag === "Exit Name").detour, "Entry Name");
+  assert.equal(singBox.config.route.rules[0].outbound, "Exit Name");
+
+  const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
+  assert.equal(xray.chains[0].hops.join(","), "entry-id,exit-id");
+  assert.equal(xray.config.outbounds.find((o) => o.tag === "Exit Name").streamSettings.sockopt.dialerProxy, "Entry Name");
+  assert.equal(xray.config.routing.rules[0].outboundTag, "Exit Name");
+});
+
+test("fails closed when a chain group becomes entirely unusable", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [
+      { id: "entry", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "dead", protocol: "socks", server: "dead.example", port: 1080 },
+      { id: "exit", protocol: "socks", server: "exit.example", port: 1080 }
+    ],
+    states: { dead: "disabled" },
+    groups: [{ id: "exit-group", type: "fallback", members: ["dead"] }],
+    chains: [{ id: "broken", hops: [{ id: "entry" }, { group: "exit-group" }] }]
+  }), /chain broken cannot be safely compiled.*no usable member/);
+});
