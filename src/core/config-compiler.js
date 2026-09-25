@@ -1,5 +1,6 @@
 import { adapterFor } from "../adapters/index.js";
 import { AdapterCapabilities, hasAdapterCapability } from "../adapters/contract.js";
+import { Kernels } from "./model.js";
 import { compileGroups } from "./group-compiler.js";
 import { resolveChain } from "./chain-resolution.js";
 import { validateUnifiedCompatibility } from "./compatibility.js";
@@ -81,7 +82,9 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     throw new Error("configuration is not safely compilable for " + kernel + (details.length ? ": " + details.join(", ") : ""));
   }
   const resolvedChains = resolveConfiguredChains(config);
-  const compiledGroups = compileGroups(config.groups, kernel, config.nodes, config.states);
+  const compiledGroups = kernel === Kernels.XRAY
+    ? { groups: [], targetMap: new Map() }
+    : compileGroups(config.groups, kernel, config.nodes, config.states);
   const nodeTargets = nodeTargetMap(config);
   const kernelConfig = {
     ...config,
