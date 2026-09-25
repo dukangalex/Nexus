@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveRoutingPolicy } from "../src/core/policy-engine.js";
+import { resolveRoutingPolicy, resolveRoutingDecision } from "../src/core/policy-engine.js";
+import { resolveGroupMember } from "../src/core/group.js";
 
 test("policy engine selects the first matching rule by order", () => {
   const result = resolveRoutingPolicy({
@@ -35,4 +36,36 @@ test("global proxy requires a concrete target", () => {
   const result = resolveRoutingPolicy({ mode: "global_proxy", rules: [], defaultAction: { type: "route", target: "Proxy" } });
   assert.equal(result.action.type, "route");
   assert.equal(result.action.target, "Proxy");
+});
+
+test("policy target resolves through the group engine", () => {
+  const result = resolveRoutingDecision({
+    rules: [{ id: "us", name: "US", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "route", target: "US" } }],
+    defaultAction: { type: "reject" }
+  }, { domain: "www.example.com" }, {
+    groups: {
+      US: { id: "US", name: "US", type: "url_test", members: ["us-1", "us-2"] }
+    },
+    nodes: [
+      { id: "us-1", latencyMs: 80 },
+      { id: "us-2", latencyMs: 30 }
+    ],
+    resolveGroupMember
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.action.target, "us-2");
+  assert.equal(result.action.group, "US");
+});
+
+test("policy rejects when a referenced group has no usable member", () => {
+  const result = resolveRoutingDecision({
+    rules: [{ id: "us", name: "US", order: 1, match: { domain_suffix: ["example.com"] }, action: { type: "route", target: "US" } }],
+    defaultAction: { type: "reject" }
+  }, { domain: "www.example.com" }, {
+    groups: { US: { id: "US", name: "US", type: "select", members: ["us-1"] } },
+    nodes: [{ id: "us-1", state: "failed" }],
+    resolveGroupMember
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.action.type, "reject");
 });
