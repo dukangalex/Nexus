@@ -46,6 +46,13 @@ function compileGroupDefinitions(definitions, nodes, states, kernel) {
   const active = new Map();
   const resolving = new Set();
   const inactive = new Set();
+  const nestedGroupIds = new Set();
+  for (const group of definitions) {
+    for (const member of Array.isArray(group.members) ? group.members : []) {
+      const id = clean(member);
+      if (id && byId.has(id)) nestedGroupIds.add(id);
+    }
+  }
   function resolveMembers(group) {
     const resolved = [];
     for (const member of requireMembers(group)) {
@@ -83,7 +90,9 @@ function compileGroupDefinitions(definitions, nodes, states, kernel) {
     const type = normalizeType(group);
     if (!type) throw new Error("group type is required: " + group.id);
     const members = resolve(group);
-    if (!members.length && type !== "region") throw new Error("group has no usable members: " + group.id);
+    if (!members.length && type !== "region" && !nestedGroupIds.has(String(group.id).trim())) {
+      throw new Error("group has no usable members: " + group.id);
+    }
   }
   return { active, inactive };
 }
