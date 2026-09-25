@@ -1,8 +1,8 @@
 import { Kernels } from "./model.js";
+import { isNodeUsable } from "./node-state.js";
 
 const MIHOMO_TYPES = new Set(["select", "url_test", "fallback", "load_balance", "region"]);
 const SING_BOX_TYPES = new Set(["select", "url_test", "load_balance"]);
-const UNUSABLE_STATES = new Set(["failed", "disabled"]);
 
 function clone(value) { return value === undefined ? undefined : structuredClone(value); }
 function clean(value) { return typeof value === "string" ? value.trim() : ""; }
@@ -11,15 +11,6 @@ function groupList(groups) {
   if (groups && typeof groups === "object") return Object.values(groups).filter((group) => group && group.id);
   return [];
 }
-function stateOf(node, states) {
-  if (states && typeof states === "object") {
-    const explicit = states instanceof Map ? states.get(node.id) : states[node.id];
-    if (typeof explicit === "string") return explicit.toLowerCase();
-    if (explicit && typeof explicit === "object" && typeof explicit.state === "string") return explicit.state.toLowerCase();
-  }
-  return clean(node.state).toLowerCase();
-}
-function usableNode(node, states) { return Boolean(node && node.id) && !UNUSABLE_STATES.has(stateOf(node, states)); }
 function requireMembers(group) {
   const members = Array.isArray(group.members) ? [...new Set(group.members.map(clean).filter(Boolean))] : [];
   if (!members.length) throw new Error("group has no usable members: " + group.id);
@@ -33,7 +24,7 @@ function normalizeType(group) { return clean(group.type).toLowerCase(); }
 function nodeTargetMap(nodes, states) {
   const map = new Map();
   for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (!usableNode(node, states)) continue;
+    if (!isNodeUsable(node, states)) continue;
     const id = String(node.id).trim();
     map.set(id, clean(node.name) || id);
   }
