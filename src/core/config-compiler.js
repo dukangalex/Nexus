@@ -1,6 +1,5 @@
 import { adapterFor } from "../adapters/index.js";
 import { AdapterCapabilities, hasAdapterCapability } from "../adapters/contract.js";
-import { Kernels } from "./model.js";
 import { compileGroups } from "./group-compiler.js";
 import { resolveChain } from "./chain-resolution.js";
 import { validateUnifiedCompatibility } from "./compatibility.js";
@@ -18,6 +17,64 @@ function chainHops(chain) {
   if (Array.isArray(chain.chain)) return chain.chain;
   if (chain.chain && typeof chain.chain === "object" && Array.isArray(chain.chain.hops)) return chain.chain.hops;
   return [];
+}
+function groupList(groups) {
+  if (Array.isArray(groups)) return groups.filter((group) => group && group.id);
+  if (groups && typeof groups === "object") return Object.values(groups).filter((group) => group && group.id);
+  return [];
+}
+function groupIdsUsedByChains(chains, groups) {
+  const byId = new Map(groupList(groups).map((group) => [String(group.id).trim(), group]));
+  const ids = new Set();
+  function visitGroup(id) {
+    const normalized = String(id || "").trim();
+    if (!normalized || ids.has(normalized)) return;
+    const group = byId.get(normalized);
+    if (!group) return;
+    ids.add(normalized);
+    for (const member of Array.isArray(group.members) ? group.members : []) {
+      const memberId = String(member || "").trim();
+      if (byId.has(memberId)) visitGroup(memberId);
+    }
+  }
+  function visitHops(hops) {
+    for (const hop of Array.isArray(hops) ? hops : []) {
+      if (!hop || typeof hop !== "object") continue;
+      const groupId = String(hop.group || hop.groupId || "").trim();
+      if (groupId) visitGroup(groupId);
+      if (Array.isArray(hop.chain)) visitHops(hop.chain);
+      else if (hop.chain && typeof hop.chain === "object" && Array.isArray(hop.chain.hops)) visitHops(hop.chain.hops);
+    }
+  }
+  for (const chain of chainList(chains)) visitHops(chainHops(chain));
+  return ids;
+}
+function groupIdsUsedByRouting(routing, groups) {
+  const byId = new Map(groupList(groups).map((group) => [String(group.id).trim(), group]));
+  const ids = new Set();
+  function visit(id) {
+    const normalized = String(id || "").trim();
+    if (!normalized || ids.has(normalized)) return;
+    const group = byId.get(normalized);
+    if (!group) return;
+    ids.add(normalized);
+    for (const member of Array.isArray(group.members) ? group.members : []) {
+      const memberId = String(member || "").trim();
+      if (byId.has(memberId)) visit(memberId);
+    }
+  }
+  function collect(action) {
+    if (action && typeof action === "object" && action.type === "route") visit(action.target);
+  }
+  for (const rule of routing && Array.isArray(routing.rules) ? routing.rules : []) collect(rule && rule.action);
+  collect(routing && routing.defaultAction);
+  return ids;
+}
+function groupsForKernel(config) {
+  const definitions = groupList(config.groups);
+  const chainGroups = groupIdsUsedByChains(config.chains, definitions);
+  const routedGroups = groupIdsUsedByRouting(config.routing, definitions);
+  return definitions.filter((group) => !chainGroups.has(String(group.id).trim()) || routedGroups.has(String(group.id).trim()));
 }
 function chainMode(chain) { return typeof chain?.mode === "string" && chain.mode.trim() ? chain.mode : "node->node"; }
 function resolveConfiguredChains(config) {
@@ -82,9 +139,8 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     throw new Error("configuration is not safely compilable for " + kernel + (details.length ? ": " + details.join(", ") : ""));
   }
   const resolvedChains = resolveConfiguredChains(config);
-  const compiledGroups = kernel === Kernels.XRAY
-    ? { groups: [], targetMap: new Map() }
-    : compileGroups(config.groups, kernel, config.nodes, config.states);
+  const compilableGroups = groupsForKernel(config);
+  const compiledGroups = compileGroups(compilableGroups, kernel, config.nodes, config.states);
   const nodeTargets = nodeTargetMap(config);
   const kernelConfig = {
     ...config,
