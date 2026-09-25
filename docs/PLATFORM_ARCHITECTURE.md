@@ -14,19 +14,20 @@ No platform is the architectural primary target. Platform-specific capabilities 
 
 ## Runtime layers
 
-```
+~~~text
 Nexus UI
    |
 Application / Orchestration
    |
 Platform-neutral Core
-   |-- configuration
-   |-- subscription
-   |-- routing
+   |-- unified capability model
+   |-- configuration / import
+   |-- explicit routing policy
+   |-- strategy groups
    |-- chain
    |-- DNS/security policy
    |-- health/self-healing
-   |-- kernel selection
+   |-- resource policy / telemetry
    |
 Kernel Adapter
    |-- Mihomo
@@ -48,7 +49,56 @@ Native Platform Implementation
    |-- Windows
    |-- macOS
    `-- Linux
-```
+~~~
+
+## Unified capability center
+
+The primary UI must expose common behavior once. Users should not need separate Mihomo, sing-box and Xray operating concepts.
+
+A user-visible policy such as:
+
+~~~text
+Google -> US
+Domestic -> bypass
+AI -> AI strategy
+Telegram -> fallback
+Default -> auto-select
+~~~
+
+is represented once in the kernel-neutral routing model and compiled by the selected adapter.
+
+The adapters are responsible for expressing that policy in native configuration and APIs. They must not redefine the user's operating model.
+
+## Explicit capability differences
+
+Unified behavior does not mean pretending that kernels or platforms are identical.
+
+For every feature Nexus must distinguish:
+
+- supported and directly compilable;
+- supported with a different native mechanism;
+- partially supported;
+- unavailable;
+- unknown / not yet verified.
+
+A non-equivalent feature must never be silently dropped or changed into a different policy. Nexus should expose the limitation and let the user choose an alternative.
+
+## Resource-efficiency boundary
+
+Resource optimization belongs in the core policy layer, but resource measurements remain runtime-specific.
+
+The core may coordinate:
+
+- adaptive health-check frequency;
+- event-driven state observation;
+- bounded telemetry/log/cache retention;
+- scheduled rule-set refresh;
+- idle/low-power reductions;
+- prevention of duplicate kernel runtimes.
+
+Kernel adapters expose measurable runtime state where the upstream kernel provides it. Platform implementations expose battery/background constraints where the OS permits it.
+
+Security, fail-closed behavior and routing correctness take precedence over resource savings.
 
 ## Non-negotiable boundary
 
