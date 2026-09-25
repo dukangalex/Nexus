@@ -82,3 +82,35 @@ test("fails closed when a group references an unknown member", () => {
     groups: [{ id: "us", type: "select", members: ["missing"] }]
   }), /group references missing node or group: missing/);
 });
+
+
+test("compiler excludes failed and disabled group members from the kernel config", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [
+      { id: "ok", protocol: "socks", server: "ok.example", port: 1080 },
+      { id: "failed", protocol: "socks", server: "failed.example", port: 1080 },
+      { id: "disabled", protocol: "socks", server: "disabled.example", port: 1080 }
+    ],
+    states: { failed: "failed", disabled: "disabled" },
+    groups: [{ id: "auto", name: "Auto", type: "select", members: ["ok", "failed", "disabled"] }]
+  });
+  assert.deepEqual(result.config["proxy-groups"][0].proxies, ["ok"]);
+});
+
+test("compiler omits an empty region group and fails closed for an empty non-region group", () => {
+  const region = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "failed", protocol: "socks", server: "failed.example", port: 1080 }],
+    states: { failed: "failed" },
+    groups: [{ id: "us", name: "US", type: "region", members: ["failed"] }]
+  });
+  assert.deepEqual(region.config["proxy-groups"], undefined);
+
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "failed", protocol: "socks", server: "failed.example", port: 1080 }],
+    states: { failed: "failed" },
+    groups: [{ id: "auto", name: "Auto", type: "select", members: ["failed"] }]
+  }), /group has no usable members: auto/);
+});
