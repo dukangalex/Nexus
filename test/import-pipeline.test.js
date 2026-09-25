@@ -30,6 +30,20 @@ test("import inspection keeps VLESS share links kernel-ambiguous", () => {
   assert.deepEqual(result.binding.candidates, ["sing-box", "xray"]);
 });
 
+test("automatic detection is exposed as an observable decision", () => {
+  const result = inspectImport(CLASH);
+  assert.equal(result.binding.decision.action, "kernel");
+  assert.equal(result.binding.decision.requiresUserChoice, false);
+  assert.deepEqual(result.binding.decision.options, ["mihomo"]);
+});
+
+test("ambiguous detection explicitly exposes user choices", () => {
+  const result = inspectImport("vless://user@example.com:443?security=tls#US");
+  assert.equal(result.binding.decision.action, "kernel");
+  assert.equal(result.binding.decision.requiresUserChoice, true);
+  assert.deepEqual(result.binding.decision.options, ["sing-box", "xray"]);
+});
+
 test("explicit kernel binding is preserved and incompatible binding is rejected", () => {
   const explicit = inspectImport(CLASH, { kernel: "mihomo" });
   assert.equal(explicit.binding.kernel, "mihomo");
