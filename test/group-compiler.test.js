@@ -41,3 +41,19 @@ test("rejects Xray groups instead of silently downgrading their semantics", () =
     groups: [{ id: "auto", name: "Auto", type: "select", members: ["a", "b"] }]
   }), /Xray does not support unified group type without semantic downgrade: select/);
 });
+
+
+test("rewrites node route targets to kernel-visible names and fails closed on unknown targets", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "node-1", name: "US 01", protocol: "socks", server: "us.example", port: 1080 }],
+    routing: { rules: [{ id: "r", name: "node", order: 1, match: { domain: ["example.com"] }, action: { type: "route", target: "node-1" } }] }
+  });
+  assert.equal(result.config.rules[0], "DOMAIN,example.com,US 01");
+
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "node-1", protocol: "socks", server: "us.example", port: 1080 }],
+    routing: { defaultAction: { type: "route", target: "missing" } }
+  }), /routing references missing node or group: missing/);
+});
