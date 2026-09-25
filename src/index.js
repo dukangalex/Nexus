@@ -5,15 +5,11 @@ export * from "./core/region.js";
 export * from "./core/import-pipeline.js";
 export * from "./core/kernel-capabilities.js";
 export * from "./core/unified-config.js";
-
 export * from "./core/compatibility.js";
-
 export * from "./core/config-compiler.js";
-
 export * from "./core/compiled-config-validation.js";
-
 export * from "./core/routing-policy.js";
 export * from "./core/resource-policy.js";
 export * from "./core/decision-registry.js";
-
 export * from "./core/group.js";
+export * from "./core/chain-resolution.js";
