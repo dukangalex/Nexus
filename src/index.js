@@ -11,3 +11,6 @@ export * from "./core/compatibility.js";
 export * from "./core/config-compiler.js";
 
 export * from "./core/compiled-config-validation.js";
+
+export * from "./core/routing-policy.js";
+export * from "./core/resource-policy.js";
