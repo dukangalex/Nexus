@@ -70,9 +70,12 @@ export function compileSingBoxChain(config, chain) {
   const output = clone(config) || {};
   output.outbounds = Array.isArray(output.outbounds) ? output.outbounds.map(clone) : [];
   for (let i = 1; i < chain.hops.length; i++) {
-    const current = chain.hops[i], detour = chain.hops[i - 1], outbound = requireOutbound(output, current.id);
-    outbound.detour = detour.id;
-    output.outbounds[output.outbounds.findIndex((o) => o && o.tag === current.id)] = outbound;
+    const current = chain.hops[i], detour = chain.hops[i - 1];
+    const outbound = requireOutbound(output, current.name || current.id);
+    outbound.detour = detour.name || detour.id;
+    const index = output.outbounds.findIndex((o) => o && o.tag === (current.name || current.id));
+    if (index < 0) throw new Error("sing-box outbound not found: " + (current.name || current.id));
+    output.outbounds[index] = outbound;
   }
   return output;
 }
