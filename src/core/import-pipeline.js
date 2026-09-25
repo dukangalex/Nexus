@@ -3,6 +3,7 @@ import { parseSubscription, parseSubscriptionDocument } from "./subscription.js"
 import { toUnifiedConfig } from "./unified-config.js";
 import { normalizeNodeConfig } from "./config.js";
 import { Kernels } from "./model.js";
+import { createDecisionPrompt } from "./decision-registry.js";
 
 function validateKernel(kernel) {
   if (kernel === null || kernel === undefined) return null;
@@ -50,6 +51,8 @@ export function inspectImport(input, { kernel = null } = {}) {
   }
 
   const prompt = promptFor(detected, selected, explicit);
+  const decision = createDecisionPrompt("kernel", detected.candidates.slice());
+
   return {
     detection: detected,
     binding: {
@@ -57,7 +60,11 @@ export function inspectImport(input, { kernel = null } = {}) {
       mode: explicit ? "explicit" : (selected ? "automatic" : "pending"),
       candidates: detected.candidates.slice(),
       requiresConfirmation: prompt.required,
-      prompt
+      prompt,
+      decision: {
+        ...decision,
+        requiresUserChoice: prompt.required
+      }
     }
   };
 }
