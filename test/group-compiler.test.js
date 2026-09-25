@@ -114,3 +114,43 @@ test("compiler omits an empty region group and fails closed for an empty non-reg
     groups: [{ id: "auto", name: "Auto", type: "select", members: ["failed"] }]
   }), /group has no usable members: auto/);
 });
+
+
+test("nested group compilation propagates unusable child groups", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [
+      { id: "ok", protocol: "socks", server: "ok.example", port: 1080 },
+      { id: "failed", protocol: "socks", server: "failed.example", port: 1080 }
+    ],
+    states: { failed: "failed" },
+    groups: [
+      { id: "child", name: "Child", type: "select", members: ["failed"] },
+      { id: "parent", name: "Parent", type: "select", members: ["child", "ok"] }
+    ]
+  });
+  assert.deepEqual(result.config["proxy-groups"].map((group) => group.name), ["Parent"]);
+  assert.deepEqual(result.config["proxy-groups"][0].proxies, ["ok"]);
+});
+
+test("nested group compilation preserves kernel-visible child targets", () => {
+  const result = compileUnifiedConfig({
+    kernel: Kernels.SING_BOX,
+    nodes: [{ id: "ok", name: "OK", protocol: "socks", server: "ok.example", port: 1080 }],
+    groups: [
+      { id: "child", name: "Child", type: "select", members: ["ok"] },
+      { id: "parent", name: "Parent", type: "select", members: ["child"] }
+    ]
+  });
+  assert.deepEqual(result.config.outbounds.find((item) => item.tag === "parent").outbounds, ["child"]);
+});
+
+test("nested group cycles fail closed", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    groups: [
+      { id: "a", name: "A", type: "select", members: ["b"] },
+      { id: "b", name: "B", type: "select", members: ["a"] }
+    ]
+  }), /group reference cycle/);
+});
