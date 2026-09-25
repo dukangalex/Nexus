@@ -81,7 +81,7 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     throw new Error("configuration is not safely compilable for " + kernel + (details.length ? ": " + details.join(", ") : ""));
   }
   const resolvedChains = resolveConfiguredChains(config);
-  const compiledGroups = compileGroups(config.groups, kernel, config.nodes);
+  const compiledGroups = compileGroups(config.groups, kernel, config.nodes, config.states);
   const nodeTargets = nodeTargetMap(config);
   const kernelConfig = {
     ...config,
