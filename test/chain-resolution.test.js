@@ -48,10 +48,13 @@ test("enforces maximum nested chain depth", () => {
   });
   assert.equal(result.ok, true);
 
-  const limited = resolveChain([{ id: "entry" }, { id: "deep", chain: [{ id: "relay" }, nested] }], {
+  const limited = resolveChain([
+    { id: "entry" },
+    { id: "outer", chain: [{ id: "relay" }, { id: "inner", chain: [{ id: "relay" }, { id: "exit" }] }] }
+  ], {
     nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }],
     maxDepth: 1
   });
   assert.equal(limited.ok, false);
-  assert.match(limited.error, /depth exceeded|duplicate\/self/);
+  assert.match(limited.error, /depth exceeded/);
 });
