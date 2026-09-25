@@ -56,7 +56,7 @@ test("kernel runtime captures and redacts logs", async () => {
     binary: "mihomo",
     spawn(binary, args, options) {
       const child = fakeSpawn();
-      child.stdout = { on(event, fn) { if (event === "data") fn('password=supersecret\\n'); } };
+      child.stdout = { on(event, fn) { if (event === "data") fn("password=test-value-123\\n"); } };
       child.stderr = { on() {} };
       return child;
     },
@@ -64,6 +64,6 @@ test("kernel runtime captures and redacts logs", async () => {
   await runtime.start();
   const entries = await runtime.logs();
   assert.match(entries[0].line, /REDACTED/);
-  assert.doesNotMatch(entries[0].line, /supersecret/);
+  assert.doesNotMatch(entries[0].line, /test-value-123/);
   await runtime.stop();
 });
