@@ -1,4 +1,6 @@
 import { validateChain } from "../../core/chain.js";
+import { Kernels } from "../../core/model.js";
+import { compileRoutingPolicy } from "../../core/routing-compiler.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
 function requireProxy(config, id) {
@@ -51,7 +53,7 @@ export function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
-  if (config.routing && Object.keys(config.routing).length) output.rules = clone(config.routing.rules || []);
+  if (config.routing && Object.keys(config.routing).length) output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);
   return output;
 }
 export function compileMihomoChain(config, chain) {
