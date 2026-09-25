@@ -1,4 +1,5 @@
-import { PlatformCapabilities, createPlatformBridge } from "./index.js";
+import { PlatformCapabilities } from "./contract.js";
+import { createPlatformBridge } from "./bridge.js";
 
 export function createPlatformRuntime(implementation, runtime) {
   if (!runtime || typeof runtime.start !== "function" || typeof runtime.stop !== "function") {
