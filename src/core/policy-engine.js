@@ -57,15 +57,17 @@ function matchObject(match, facts) {
       if (!matchLogical(expected, facts)) return false;
       continue;
     }
-    const actual = facts[key];
     if (key === "domain_suffix") {
-      if (!domainSuffix(actual, expected)) return false;
+      if (!domainSuffix(facts.domain, expected)) return false;
     } else if (key === "domain_keyword") {
-      if (!domainKeyword(actual, expected)) return false;
-    } else if (key === "ip_cidr" || key === "source_ip_cidr") {
-      if (!cidrContains(actual, expected)) return false;
-    } else if (!includesMatch(expected, actual)) {
-      return false;
+      if (!domainKeyword(facts.domain, expected)) return false;
+    } else {
+      const actual = facts[key];
+      if (key === "ip_cidr" || key === "source_ip_cidr") {
+        if (!cidrContains(actual, expected)) return false;
+      } else if (!includesMatch(expected, actual)) {
+        return false;
+      }
     }
   }
   return true;
