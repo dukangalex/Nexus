@@ -72,7 +72,7 @@ Feature availability must be capability-driven, not hard-coded as if all platfor
 
 The core selects a kernel through an adapter contract. Kernel-specific configuration syntax remains inside adapters.
 
-The first production integration target is sing-box because its current upstream documentation explicitly covers graphical clients and platform-specific TUN/service integration. Mihomo and Xray remain first-class adapters and must be verified against their upstream APIs/source before production embedding claims are made.
+No kernel is a permanent production-primary target. Mihomo, sing-box and Xray remain first-class adapters; native embedding must be verified independently for each selected kernel and platform before production support is claimed.
 
 ## Evidence rule
 
