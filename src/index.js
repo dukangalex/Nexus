@@ -14,3 +14,4 @@ export * from "./core/compiled-config-validation.js";
 
 export * from "./core/routing-policy.js";
 export * from "./core/resource-policy.js";
+export * from "./core/decision-registry.js";
