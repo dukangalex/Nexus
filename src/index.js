@@ -14,3 +14,4 @@ export * from "./core/decision-registry.js";
 export * from "./core/group.js";
 export * from "./core/group-compiler.js";
 export * from "./core/chain-resolution.js";
+export * from "./core/node-state.js";
