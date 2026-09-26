@@ -26,7 +26,7 @@ export function recordProbe(node,outcome,options={}) {
   const failures=Number.isInteger(outcome.consecutiveFailures)?outcome.consecutiveFailures:0, successes=Number.isInteger(outcome.consecutiveSuccesses)?outcome.consecutiveSuccesses:0;
   let next=current;
   if(success){if(successes+1>=successThreshold&&(current===NodeStates.FAILED||current===NodeStates.DEGRADED))next=NodeStates.AVAILABLE;else if(current===NodeStates.VALIDATED||current===NodeStates.AVAILABLE)next=NodeStates.AVAILABLE;}
-  else if(failures+1>=failureThreshold){if(current===NodeStates.ACTIVE||current===NodeStates.AVAILABLE||current===NodeStates.VALIDATED)next=NodeStates.FAILED;else if(current!==NodeStates.DISABLED)next=NodeStates.DEGRADED;}
+  else if(failures+1>=failureThreshold){if(current===NodeStates.ACTIVE||current===NodeStates.AVAILABLE||current===NodeStates.VALIDATED||current===NodeStates.DEGRADED)next=NodeStates.FAILED;}
   else if(current===NodeStates.ACTIVE||current===NodeStates.AVAILABLE)next=NodeStates.DEGRADED;
   if(next!==current&&!canTransition(current,next))next=current;
   const updated=next===current?{...node}:transitionNodeState(node,next);
