@@ -59,14 +59,28 @@ export function normalizeEncryptedDns(config = {}) {
   return parsed;
 }
 
+function firstNodeTarget(config) {
+  const node = Array.isArray(config && config.nodes) ? config.nodes.find((item) => item && (item.name || item.id)) : null;
+  return node ? String(node.name || node.id).trim() : null;
+}
+
+function routingDnsTarget(config) {
+  const fallback = config && config.routing && config.routing.defaultAction;
+  if (fallback && (fallback.type === "route" || fallback.type === "chain") && fallback.target) return String(fallback.target).trim();
+  if (fallback && fallback.type === "reject") return "Nexus-Blackhole";
+  return firstNodeTarget(config);
+}
+
 export function compileDnsConfig(config = {}, kernel) {
   const servers = normalizeEncryptedDns(config);
+  const dnsTarget = routingDnsTarget(config);
   if (kernel === Kernels.MIHOMO) {
     return {
       enable: true,
       nameserver: servers.map((server) => server.url),
       "proxy-server-nameserver": servers.map((server) => server.url),
-      "direct-nameserver": servers.map((server) => server.url)
+      "direct-nameserver": servers.map((server) => server.url),
+      ...(config && config.routing ? { "respect-rules": true } : {}),
     };
   }
   if (kernel === Kernels.SING_BOX) {
@@ -76,9 +90,12 @@ export function compileDnsConfig(config = {}, kernel) {
       server: server.host,
       server_port: server.port,
       path: server.path,
-      tls: { enabled: true }
+      tls: { enabled: true },
+      ...(dnsTarget && dnsTarget !== "Nexus-Blackhole" ? { detour: dnsTarget } : {})
     }));
-    return { servers: compiled, final: compiled[0].tag };
+    const output = { servers: compiled, final: compiled[0].tag };
+    if (dnsTarget === "Nexus-Blackhole") output.rules = [{ action: "reject" }];
+    return output;
   }
   if (kernel === Kernels.XRAY) {
     return {
