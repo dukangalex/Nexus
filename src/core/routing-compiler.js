@@ -88,10 +88,6 @@ function compileSingBoxRule(rule) {
       output.action = "resolve";
       output.server = requireTarget(rule);
       break;
-    case "bypass":
-      output.action = "bypass";
-      output.outbound = requireTarget(rule);
-      break;
     default:
       throw new Error("unsupported sing-box routing action: " + rule.action.type);
   }
@@ -132,9 +128,6 @@ function compileXrayRule(rule) {
       break;
     case "dns":
       output.outboundTag = "Nexus-DNS";
-      break;
-    case "bypass":
-      output.outboundTag = "Nexus-Direct";
       break;
     default:
       throw new Error("unsupported Xray routing action: " + rule.action.type);

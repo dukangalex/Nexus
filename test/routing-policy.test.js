@@ -63,3 +63,13 @@ test("routing policy preserves explicit reject, DNS and chain actions", () => {
     assert.equal(rule.action.type, action.type);
   }
 });
+
+
+test("routing policy requires an explicit target for bypass", () => {
+  assert.throws(() => createRoutingRule({
+    id: "domestic",
+    name: "Domestic",
+    match: { geoip: ["CN"] },
+    action: { type: "bypass" }
+  }), /routing action target must be a non-empty string/);
+});

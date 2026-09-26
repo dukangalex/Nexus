@@ -75,7 +75,7 @@ function normalizeAction(action) {
 
   const normalized = { type };
 
-  if (type === "route" || type === "chain") {
+  if (type === "route" || type === "chain" || type === "bypass") {
     normalized.target = nonEmptyString(action.target, "routing action target");
   }
 
