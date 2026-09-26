@@ -32,7 +32,7 @@ test("kill switch remains armed after kernel startup failure", async () => {
   await assert.rejects(() => runtime.start({ security: { killSwitch: true } }), /runtime failed/);
   await runtime.stop();
   assert.ok(mock.events.includes("block.on:kill-switch-start-failed"));
-  assert.ok(mock.events.includes("block.off:kill-switch-release"));
+  assert.ok(mock.events.includes("block.off:kill-switch-stop"));
 });
 
 test("kill switch releases only during an orderly stop", async () => {
@@ -43,5 +43,5 @@ test("kill switch releases only during an orderly stop", async () => {
   assert.ok(mock.events.includes("block.on:kill-switch-start"));
   assert.ok(mock.events.includes("tun.start"));
   assert.ok(mock.events.includes("block.off:kill-switch-network-restored"));
-  assert.ok(mock.events.includes("block.off:kill-switch-release"));
+  assert.ok(mock.events.includes("block.off:kill-switch-stop"));
 });
