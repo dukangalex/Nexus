@@ -52,7 +52,12 @@ export function planSelfHealing({ nodes = [], groups = [], states, now = Date.no
     if (actions.length >= policy.maxActionsPerCycle) break;
   }
 
-  return { actions, affectedGroups: [...affected], nextActions: new Map(actions.map((action) => [action.groupId, { at: action.at }])) };
+  return {
+    actions,
+    affectedGroups: [...affected],
+    reselectGroups: [...affected],
+    nextActions: new Map(actions.map((action) => [action.groupId, { at: action.at }]))
+  };
 }
 
 export function chooseHealthy(nodes = [], states) {
@@ -62,4 +67,9 @@ export function chooseHealthy(nodes = [], states) {
 
 export function shouldFailover(failures) {
   return Number(failures) >= 3;
+}
+
+export function createHealingContext(plan) {
+  const groups = Array.isArray(plan && plan.reselectGroups) ? plan.reselectGroups.filter((id) => typeof id === "string" && id.trim()) : [];
+  return Object.freeze({ reselectGroups: new Set(groups) });
 }
