@@ -77,7 +77,18 @@ export function compileXrayConfig(config) {
   const failClosed = config.security?.failClosed !== false;
   const routingPresent = config.routing && Object.keys(config.routing).length;
   if (routingPresent) {
-    output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };
+    output.routing = { rules: [] };
+    const dnsTarget = config.routing.defaultAction && (
+      config.routing.defaultAction.type === "route" || config.routing.defaultAction.type === "chain"
+    ) ? config.routing.defaultAction.target : ((config.nodes || [])[0] && ((config.nodes || [])[0].name || (config.nodes || [])[0].id));
+    if (dnsTarget) {
+      output.routing.rules.push({
+        inboundTag: ["Nexus-DNS"],
+        outboundTag: dnsTarget,
+        ruleTag: "Nexus-DNS-Route"
+      });
+    }
+    output.routing.rules.push(...compileRoutingPolicy(config.routing, Kernels.XRAY));
     applySecurityRules(output, config);
     const fallback = config.routing.defaultAction;
     if (fallback && (fallback.type === "route" || fallback.type === "chain")) output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
@@ -85,6 +96,14 @@ export function compileXrayConfig(config) {
     else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") throw new Error("unsupported Xray default routing action: " + fallback.type);
   } else {
     output.routing = { rules: [] };
+    const first = (config.nodes || [])[0];
+    if (first && (first.name || first.id)) {
+      output.routing.rules.push({
+        inboundTag: ["Nexus-DNS"],
+        outboundTag: first.name || first.id,
+        ruleTag: "Nexus-DNS-Route"
+      });
+    }
     applySecurityRules(output, config);
   }
   const actions = (config.routing?.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);
@@ -94,6 +113,7 @@ export function compileXrayConfig(config) {
   if (failClosed && !routingPresent) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
   else if (failClosed && !config.routing.defaultAction) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
   output.dns = compileDnsConfig(config, Kernels.XRAY);
+  output.dns.tag = "Nexus-DNS";
   return output;
 }
 export function compileXrayChain(config, chain) {
