@@ -39,3 +39,21 @@ test("validates feature constraints across nodes", () => {
   }]);
   assert.equal(result.ok, true);
 });
+
+test("normalizes websocket alias used by canonical nodes", () => {
+  const result = evaluateKernelFeatures(Kernels.MIHOMO, {
+    protocol: "vless",
+    transport: { type: "ws" }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.features[0].feature, "transport.websocket");
+});
+
+test("accepts sing-box Hysteria gRPC transport", () => {
+  const result = evaluateKernelFeatures(Kernels.SING_BOX, {
+    protocol: "hysteria",
+    transport: { type: "grpc", serviceName: "proxy" }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.features[0].status, "supported");
+});
