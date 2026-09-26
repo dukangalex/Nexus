@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHealingPolicy, planSelfHealing, chooseHealthy, shouldFailover } from "../src/core/self-healing.js";
+import { createHealingContext, createHealingPolicy, planSelfHealing, chooseHealthy, shouldFailover } from "../src/core/self-healing.js";
 
 test("self-healing plans group reselection only when healthy candidates are insufficient", () => {
   const result = planSelfHealing({
@@ -47,4 +47,15 @@ test("healing policy and legacy failover threshold remain deterministic", () => 
   assert.equal(createHealingPolicy({ maxActionsPerCycle: 2 }).maxActionsPerCycle, 2);
   assert.equal(shouldFailover(3), true);
   assert.equal(shouldFailover(2), false);
+});
+
+test("healing plan exposes a stable reselection context", () => {
+  const plan = planSelfHealing({
+    nodes: [{ id: "dead", state: "failed" }],
+    groups: [{ id: "relay", members: ["dead"] }],
+    states: { dead: "failed" },
+    now: 1000
+  });
+  const context = createHealingContext(plan);
+  assert.equal(context.reselectGroups.has("relay"), true);
 });
