@@ -11,11 +11,15 @@ const BUILTIN_TARGETS = new Set([
   "DIRECT", "direct", "REJECT", "reject", "Nexus-Direct", "Nexus-Blackhole", "Nexus-DNS"
 ]);
 
+function listById(value) {
+  if (Array.isArray(value)) return value.filter((item) => item && item.id);
+  if (value && typeof value === "object") return Object.values(value).filter((item) => item && item.id);
+  return [];
+}
+
 function collectNodeTargets(config) {
   const targets = new Set();
-  if (!Array.isArray(config.nodes)) return targets;
-  for (const node of config.nodes) {
-    if (!node || typeof node !== "object") continue;
+  for (const node of listById(config.nodes)) {
     for (const value of [node.id, node.name, node.tag]) {
       if (typeof value === "string" && value.trim()) targets.add(value.trim());
     }
@@ -35,16 +39,52 @@ function collectStrategyTargets(config) {
   return targets;
 }
 
+function collectGroupTargets(config) {
+  const targets = new Set();
+  for (const group of listById(config.groups)) {
+    for (const value of [group.id, group.name, group.tag]) {
+      if (typeof value === "string" && value.trim()) targets.add(value.trim());
+    }
+  }
+  return targets;
+}
+
+function collectChainTargets(config) {
+  const targets = new Set();
+  for (const chain of listById(config.chains)) {
+    for (const value of [chain.id, chain.name, chain.tag]) {
+      if (typeof value === "string" && value.trim()) targets.add(value.trim());
+    }
+  }
+  return targets;
+}
+
 function validateRoutingTargets(config) {
   const errors = [];
   if (!config.routing || typeof config.routing !== "object") return errors;
 
-  const targets = new Set([...collectNodeTargets(config), ...collectStrategyTargets(config), ...BUILTIN_TARGETS]);
+  const targets = new Set([
+    ...collectNodeTargets(config),
+    ...collectStrategyTargets(config),
+    ...collectGroupTargets(config),
+    ...collectChainTargets(config),
+    ...BUILTIN_TARGETS
+  ]);
+
   const check = (action, location) => {
     if (!action || typeof action !== "object") return;
     if (!["route", "chain", "dns", "bypass"].includes(action.type)) return;
     if (typeof action.target !== "string" || !action.target.trim()) return;
     const target = action.target.trim();
+
+    if (action.type === "chain" && !collectChainTargets(config).has(target)) {
+      errors.push(diagnostic("ROUTING_CHAIN_UNRESOLVED", "error", "routing references missing chain", {
+        target,
+        location
+      }));
+      return;
+    }
+
     if (!targets.has(target)) {
       errors.push(diagnostic("ROUTING_TARGET_UNRESOLVED", "error", "routing target does not exist in the unified configuration", {
         target,
