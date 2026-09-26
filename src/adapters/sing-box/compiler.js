@@ -1,6 +1,7 @@
 import { validateChain } from "../../core/chain.js";
 import { Kernels } from "../../core/model.js";
 import { compileRoutingPolicy } from "../../core/routing-compiler.js";
+import { compileDnsConfig } from "../../core/dns.js";
 
 function clone(value) { return value && typeof value === "object" ? structuredClone(value) : value; }
 function requireOutbound(config, id) {
@@ -54,7 +55,7 @@ function applySecurityRules(output, config) {
 export function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
-  if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
+  output.dns = compileDnsConfig(config, Kernels.SING_BOX);
   const failClosed = config.security?.failClosed !== false;
   if (config.routing && Object.keys(config.routing).length) {
     output.route = { rules: compileRoutingPolicy(config.routing, Kernels.SING_BOX) };
