@@ -42,6 +42,7 @@ function validateSingBoxOutbound(outbound, index, errors) {
   if (!hasText(outbound.tag)) push(errors, label + " requires tag");
   if (!hasText(outbound.type)) push(errors, label + " requires type");
   if (!SING_BOX_TYPES.has(outbound.type)) return;
+  if (outbound.type === "block") return;
   validateEndpoint(outbound, label, errors);
   if (["vmess","vless","tuic"].includes(outbound.type) && !hasText(outbound.uuid)) push(errors, label + " requires uuid");
   if (["trojan","shadowsocks","hysteria2","tuic","anytls"].includes(outbound.type) && !hasText(outbound.password)) push(errors, label + " requires password");
