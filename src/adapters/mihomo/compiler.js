@@ -49,12 +49,20 @@ function compileNode(node) {
   if (source.privateKey !== undefined && output["private-key"] === undefined) output["private-key"] = clone(source.privateKey);
   return output;
 }
-function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.ipv6LeakBlackhole === true) output.rules.push("IP-CIDR6,::/0,REJECT");\n  if (security.blockWebRTC3478 === true) output.rules.push("DST-PORT,3478,REJECT");\n  return output;\n}\n\nexport function compileMihomoConfig(config) {
+function applySecurityRules(output, config) {
+  const security = config.security || {};
+  if (security.ipv6LeakBlackhole === true) output.rules.push("IP-CIDR6,::/0,REJECT");
+  if (security.blockWebRTC3478 === true) output.rules.push("DST-PORT,3478,REJECT");
+  return output;
+}
+
+export function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   if (config.routing && Object.keys(config.routing).length) {
     output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);
+    applySecurityRules(output, config);
     const fallback = config.routing.defaultAction;
     if (fallback) {
       if (fallback.type === "route") output.rules.push("MATCH," + fallback.target);
@@ -65,7 +73,9 @@ function applySecurityRules(output, config) {\n  const security = config.securit
       output.rules.push("MATCH,REJECT");
     }
   } else if (config.security?.failClosed !== false) {
-    output.rules = ["MATCH,REJECT"];
+    output.rules = [];
+    applySecurityRules(output, config);
+    output.rules.push("MATCH,REJECT");
   }
   return output;
 }
