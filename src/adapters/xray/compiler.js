@@ -27,11 +27,8 @@ function compileNode(node) {
   } else if (protocol === "trojan") {
     settings.address = server; settings.port = port; settings.password = auth.password || source.password;
   } else if (protocol === "hysteria") {
-    settings.version = source.version === undefined ? 2 : Number(source.version);
-    settings.address = server; settings.port = port;
-    if (auth.password || source.password) {
-      output.streamSettings = { method: "hysteria", hysteriaSettings: { version: settings.version, auth: auth.password || source.password } };
-    }
+    settings.version = source.version === undefined ? 2 : Number(source.version); settings.address = server; settings.port = port;
+    if (auth.password || source.password) output.streamSettings = { method: "hysteria", hysteriaSettings: { version: settings.version, auth: auth.password || source.password } };
   } else if (protocol === "shadowsocks") {
     settings.address = server; settings.port = port; settings.method = source.method || source.cipher; settings.password = auth.password || source.password;
   } else if (protocol === "socks" || protocol === "http") {
@@ -52,58 +49,40 @@ function compileNode(node) {
   if (source.tls) {
     output.streamSettings = output.streamSettings || {};
     output.streamSettings.security = source.tls.reality?.enabled ? "reality" : (source.tls.enabled ? "tls" : "none");
-    if (source.tls.serverName) {
-      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
-      output.streamSettings.tlsSettings.serverName = source.tls.serverName;
-    }
-    if (source.tls.alpn?.length) {
-      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
-      output.streamSettings.tlsSettings.alpn = [...source.tls.alpn];
-    }
-    if (source.tls.fingerprint && !source.tls.reality?.enabled) {
-      output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {};
-      output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint;
-    }
-    if (source.tls.reality?.enabled) {
-      output.streamSettings.realitySettings = {
-        serverName: source.tls.serverName || "",
-        fingerprint: source.tls.fingerprint,
-        password: source.tls.reality.publicKey,
-        shortId: source.tls.reality.shortId,
-        spiderX: source.tls.reality.spiderX
-      };
-    }
+    if (source.tls.serverName) { output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {}; output.streamSettings.tlsSettings.serverName = source.tls.serverName; }
+    if (source.tls.alpn?.length) { output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {}; output.streamSettings.tlsSettings.alpn = [...source.tls.alpn]; }
+    if (source.tls.fingerprint && !source.tls.reality?.enabled) { output.streamSettings.tlsSettings = output.streamSettings.tlsSettings || {}; output.streamSettings.tlsSettings.fingerprint = source.tls.fingerprint; }
+    if (source.tls.reality?.enabled) output.streamSettings.realitySettings = { serverName: source.tls.serverName || "", fingerprint: source.tls.fingerprint, password: source.tls.reality.publicKey, shortId: source.tls.reality.shortId, spiderX: source.tls.reality.spiderX };
   }
   if (source.transport?.type) {
     output.streamSettings = output.streamSettings || {};
     output.streamSettings.network = source.transport.type;
-    if (source.transport.type === "ws") {
-      output.streamSettings.wsSettings = { path: source.transport.path || "/" };
-      if (source.transport.headers) output.streamSettings.wsSettings.headers = clone(source.transport.headers);
-    } else if (source.transport.type === "grpc") {
-      output.streamSettings.grpcSettings = { serviceName: source.transport.serviceName || "" };
-    } else if (source.transport.type === "xhttp") output.streamSettings.xhttpSettings = clone(source.transport.raw || {});
+    if (source.transport.type === "ws") { output.streamSettings.wsSettings = { path: source.transport.path || "/" }; if (source.transport.headers) output.streamSettings.wsSettings.headers = clone(source.transport.headers); }
+    else if (source.transport.type === "grpc") output.streamSettings.grpcSettings = { serviceName: source.transport.serviceName || "" };
+    else if (source.transport.type === "xhttp") output.streamSettings.xhttpSettings = clone(source.transport.raw || {});
   }
   if (source.streamSettings) output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
   return output;
 }
 export function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
-  if (config.routing && Object.keys(config.routing).length) {
+  const failClosed = config.security?.failClosed !== false;
+  const routingPresent = config.routing && Object.keys(config.routing).length;
+  if (routingPresent) {
     output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };
     const fallback = config.routing.defaultAction;
-    if (fallback && (fallback.type === "route" || fallback.type === "chain")) {
-      output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
-    } else if (fallback && fallback.type === "reject") {
-      output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
-    } else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") {
-      throw new Error("unsupported Xray default routing action: " + fallback.type);
-    }
-    const actions = (config.routing.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);
-    if (actions.includes("reject")) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });
-    if (actions.includes("bypass")) output.outbounds.push({ protocol: "freedom", tag: "Nexus-Direct" });
-    if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });
+    if (fallback && (fallback.type === "route" || fallback.type === "chain")) output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
+    else if (fallback && fallback.type === "reject") output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
+    else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") throw new Error("unsupported Xray default routing action: " + fallback.type);
+  } else {
+    output.routing = { rules: [] };
   }
+  const actions = (config.routing?.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);
+  if (actions.includes("reject") || (config.routing?.defaultAction?.type === "reject") || failClosed) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });
+  if (actions.includes("bypass")) output.outbounds.push({ protocol: "freedom", tag: "Nexus-Direct" });
+  if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });
+  if (failClosed && !routingPresent) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
+  else if (failClosed && !config.routing.defaultAction) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   return output;
 }
