@@ -117,7 +117,9 @@ test("compiles a resolved chain through the full unified pipeline for all kernel
   const mihomo = compileUnifiedConfig({ ...common, kernel: Kernels.MIHOMO });
   assert.equal(mihomo.config.proxies.find((p) => p.name === "exit")["dialer-proxy"], "entry");
   assert.equal(mihomo.config.rules[0], "DOMAIN-SUFFIX,example.com,exit");
-  assert.equal(mihomo.config.rules[1], "MATCH,exit");
+  assert.ok(mihomo.config.rules.includes("IP-CIDR6,::/0,REJECT"));
+  assert.ok(mihomo.config.rules.includes("DST-PORT,3478,REJECT"));
+  assert.equal(mihomo.config.rules[mihomo.config.rules.length - 1], "MATCH,exit");
 
   const sing = compileUnifiedConfig({ ...common, kernel: Kernels.SING_BOX });
   assert.equal(sing.config.outbounds.find((o) => o.tag === "exit").detour, "entry");
