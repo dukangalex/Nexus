@@ -52,7 +52,8 @@ function validateDnsSemantics(config, errors) {
 
 function validateRoutingSemantics(config, errors) {
   const routing = config && config.routing;
-  if (!routing || typeof routing !== "object") {
+  if (routing === undefined || routing === null) return;
+  if (typeof routing !== "object") {
     errors.push(Object.freeze({ code:"ROUTING_DEFAULT_REQUIRED", severity:"error", key:"routing.defaultAction", message:"fail-closed routing requires an explicit default action", value:null }));
     return;
   }
