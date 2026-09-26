@@ -93,7 +93,7 @@ export function compileXrayConfig(config) {
   if (actions.includes("dns")) output.outbounds.push({ protocol: "dns", tag: "Nexus-DNS" });
   if (failClosed && !routingPresent) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
   else if (failClosed && !config.routing.defaultAction) output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
-  if (config.security?.encryptedDns === true || (config.dns && Object.keys(config.dns).length)) output.dns = compileDnsConfig(config, Kernels.XRAY);
+  output.dns = compileDnsConfig(config, Kernels.XRAY);
   return output;
 }
 export function compileXrayChain(config, chain) {
