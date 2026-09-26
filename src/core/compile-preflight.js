@@ -7,6 +7,62 @@ function diagnostic(code, severity, message, details = {}) {
   return Object.freeze({ code, severity, message, ...details });
 }
 
+const BUILTIN_TARGETS = new Set([
+  "DIRECT", "direct", "REJECT", "reject", "Nexus-Direct", "Nexus-Blackhole", "Nexus-DNS"
+]);
+
+function collectNodeTargets(config) {
+  const targets = new Set();
+  if (!Array.isArray(config.nodes)) return targets;
+  for (const node of config.nodes) {
+    if (!node || typeof node !== "object") continue;
+    for (const value of [node.id, node.name, node.tag]) {
+      if (typeof value === "string" && value.trim()) targets.add(value.trim());
+    }
+  }
+  return targets;
+}
+
+function collectStrategyTargets(config) {
+  const targets = new Set();
+  const strategies = config.routing && Array.isArray(config.routing.strategies) ? config.routing.strategies : [];
+  for (const strategy of strategies) {
+    if (!strategy || typeof strategy !== "object") continue;
+    for (const value of [strategy.id, strategy.name, strategy.tag]) {
+      if (typeof value === "string" && value.trim()) targets.add(value.trim());
+    }
+  }
+  return targets;
+}
+
+function validateRoutingTargets(config) {
+  const errors = [];
+  if (!config.routing || typeof config.routing !== "object") return errors;
+
+  const targets = new Set([...collectNodeTargets(config), ...collectStrategyTargets(config), ...BUILTIN_TARGETS]);
+  const check = (action, location) => {
+    if (!action || typeof action !== "object") return;
+    if (!["route", "chain", "dns", "bypass"].includes(action.type)) return;
+    if (typeof action.target !== "string" || !action.target.trim()) return;
+    const target = action.target.trim();
+    if (!targets.has(target)) {
+      errors.push(diagnostic("ROUTING_TARGET_UNRESOLVED", "error", "routing target does not exist in the unified configuration", {
+        target,
+        location
+      }));
+    }
+  };
+
+  check(config.routing.defaultAction, "routing.defaultAction");
+  if (Array.isArray(config.routing.rules)) {
+    config.routing.rules.forEach((rule, index) => {
+      if (!rule || rule.enabled === false) return;
+      check(rule.action, `routing.rules[${index}].action`);
+    });
+  }
+  return errors;
+}
+
 export function preflightUnifiedConfig(config, kernel = config && config.kernel) {
   if (!config || typeof config !== "object") {
     const d = diagnostic("CONFIG_INVALID", "error", "unified configuration is required");
@@ -31,6 +87,7 @@ export function preflightUnifiedConfig(config, kernel = config && config.kernel)
     for (const item of security.errors) {
       errors.push(diagnostic(item.code, "error", item.message, { key: item.key, value: item.value }));
     }
+    errors.push(...validateRoutingTargets(config));
     for (const item of compatibility.unsupported) {
       errors.push(diagnostic("PROTOCOL_UNSUPPORTED", "error", "node protocol is unsupported", {
         id: item.id, protocol: item.protocol, reason: item.reason
