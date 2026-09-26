@@ -2,6 +2,7 @@ import { Kernels } from "./model.js";
 import { UpstreamKernelRegistry } from "./kernel-registry.js";
 import { KernelCapabilityManifest } from "./kernel-capability-manifest.js";
 import { validateNodeCombinations } from "./combination-constraints.js";
+import { validateKernelFeatures } from "./kernel-feature-manifest.js";
 
 export const CompatibilityStatus = Object.freeze({
   SUPPORTED: "supported",
@@ -9,7 +10,6 @@ export const CompatibilityStatus = Object.freeze({
   UNKNOWN: "unknown"
 });
 
-// Production baselines are owned by kernel-registry.js; this module consumes them.
 export const KernelVersions = Object.freeze(Object.fromEntries(
   Object.entries(UpstreamKernelRegistry).map(([kernel, entry]) => [kernel, Object.freeze({
     stable: entry.stable,
@@ -60,19 +60,24 @@ export function validateUnifiedCompatibility(config, kernel = config && config.k
   const combination = validateNodeCombinations(kernel, nodes);
   const constraintErrors = combination.errors;
   const warnings = combination.warnings;
+  const features = validateKernelFeatures(kernel, nodes);
 
   return {
     kernel,
     version: KernelVersions[kernel],
-    ok: unsupported.length === 0 && unknown.length === 0 && constraintErrors.length === 0,
-    status: unsupported.length || constraintErrors.length
+    ok: unsupported.length === 0 && unknown.length === 0 &&
+      constraintErrors.length === 0 && features.errors.length === 0 && features.unknown.length === 0,
+    status: unsupported.length || constraintErrors.length || features.errors.length
       ? CompatibilityStatus.UNSUPPORTED
-      : (unknown.length ? CompatibilityStatus.UNKNOWN : CompatibilityStatus.SUPPORTED),
+      : (unknown.length || features.unknown.length ? CompatibilityStatus.UNKNOWN : CompatibilityStatus.SUPPORTED),
     nodes: results,
     unsupported,
     unknown,
     constraintErrors,
-    warnings
+    warnings,
+    featureErrors: features.errors,
+    featureUnknown: features.unknown,
+    featureResults: features.results
   };
 }
 
