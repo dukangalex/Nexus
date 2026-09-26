@@ -64,7 +64,7 @@ function compileNode(node) {
   if (source.streamSettings) output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
   return output;
 }
-export function compileXrayConfig(config) {
+function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.blockWebRTC3478 === true) output.routing.rules.unshift({ port: "3478", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-WebRTC-3478" });\n  if (security.ipv6LeakBlackhole === true) output.routing.rules.unshift({ ip: ["::/0"], outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-IPv6-Blackhole" });\n  return output;\n}\n\nexport function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   const failClosed = config.security?.failClosed !== false;
   const routingPresent = config.routing && Object.keys(config.routing).length;
