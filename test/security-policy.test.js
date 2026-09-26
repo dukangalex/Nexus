@@ -50,3 +50,27 @@ test("compile preflight keeps effective security defaults when omitted", () => {
   assert.equal(result.security.ok, true);
   assert.equal(result.security.policy.failClosed, true);
 });
+
+
+test("rejects plaintext DNS when encrypted DNS is required", () => {
+  const result = validateSecurityPolicy({
+    dns: { servers: ["udp://1.1.1.1:53"] }
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((item) => item.code === "DNS_PLAINTEXT_SERVER"));
+});
+
+test("accepts encrypted DNS endpoints", () => {
+  const result = validateSecurityPolicy({
+    dns: { servers: ["https://1.1.1.1/dns-query"] }
+  });
+  assert.equal(result.ok, true);
+});
+
+test("rejects explicit DNS and IPv6 leak protection downgrades", () => {
+  const result = validateSecurityPolicy({
+    dns: { encrypted: false, ipv6LeakProtection: false }
+  });
+  assert.ok(result.errors.some((item) => item.code === "DNS_ENCRYPTION_DISABLED"));
+  assert.ok(result.errors.some((item) => item.code === "DNS_IPV6_LEAK_PROTECTION_DISABLED"));
+});
