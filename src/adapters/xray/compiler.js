@@ -64,18 +64,27 @@ function compileNode(node) {
   if (source.streamSettings) output.streamSettings = { ...(output.streamSettings || {}), ...clone(source.streamSettings) };
   return output;
 }
-function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.ipv6LeakBlackhole === true) output.routing.rules.push({ ip: ["::/0"], outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-IPv6-Blackhole" });\n  if (security.blockWebRTC3478 === true) output.routing.rules.push({ port: "3478", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-WebRTC-3478" });\n  return output;\n}\n\nexport function compileXrayConfig(config) {
+function applySecurityRules(output, config) {
+  const security = config.security || {};
+  if (security.ipv6LeakBlackhole === true) output.routing.rules.push({ ip: ["::/0"], outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-IPv6-Blackhole" });
+  if (security.blockWebRTC3478 === true) output.routing.rules.push({ port: "3478", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-WebRTC-3478" });
+  return output;
+}
+
+export function compileXrayConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   const failClosed = config.security?.failClosed !== false;
   const routingPresent = config.routing && Object.keys(config.routing).length;
   if (routingPresent) {
     output.routing = { rules: compileRoutingPolicy(config.routing, Kernels.XRAY) };
+    applySecurityRules(output, config);
     const fallback = config.routing.defaultAction;
     if (fallback && (fallback.type === "route" || fallback.type === "chain")) output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
     else if (fallback && fallback.type === "reject") output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
     else if (fallback && fallback.type !== "dns" && fallback.type !== "bypass") throw new Error("unsupported Xray default routing action: " + fallback.type);
   } else {
     output.routing = { rules: [] };
+    applySecurityRules(output, config);
   }
   const actions = (config.routing?.rules || []).filter((rule) => rule && rule.enabled).map((rule) => rule.action && rule.action.type);
   if (actions.includes("reject") || (config.routing?.defaultAction?.type === "reject") || failClosed) output.outbounds.push({ protocol: "blackhole", tag: "Nexus-Blackhole" });
