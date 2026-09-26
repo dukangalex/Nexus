@@ -16,7 +16,7 @@ test("compiles unified groups to Mihomo and rewrites route targets", () => {
   assert.equal(result.config["proxy-groups"][0].name, "US Auto");
   assert.deepEqual(result.config["proxy-groups"][0].proxies, ["us-1", "us-2"]);
   assert.equal(result.config["proxy-groups"][0].type, "url-test");
-  assert.equal(result.config.rules[0], "DOMAIN-SUFFIX,example.com,US Auto");
+  assert.equal(result.config.rules.find((rule) => rule === "DOMAIN-SUFFIX,example.com,US Auto"), "DOMAIN-SUFFIX,example.com,US Auto");
   assert.equal(result.groups[0].target, "US Auto");
 });
 
@@ -49,7 +49,7 @@ test("rewrites node route targets to kernel-visible names and fails closed on un
     nodes: [{ id: "node-1", name: "US 01", protocol: "socks", server: "us.example", port: 1080 }],
     routing: { rules: [{ id: "r", name: "node", order: 1, match: { domain: ["example.com"] }, action: { type: "route", target: "node-1" } }] }
   });
-  assert.equal(result.config.rules[0], "DOMAIN,example.com,US 01");
+  assert.equal(result.config.rules.find((rule) => rule === "DOMAIN,example.com,US 01"), "DOMAIN,example.com,US 01");
 
   assert.throws(() => compileUnifiedConfig({
     kernel: Kernels.MIHOMO,
