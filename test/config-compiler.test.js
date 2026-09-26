@@ -128,6 +128,8 @@ test("compiles a resolved chain through the full unified pipeline for all kernel
 
   const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
   assert.equal(xray.config.outbounds.find((o) => o.tag === "exit").streamSettings.sockopt.dialerProxy, "entry");
+  assert.equal(xray.config.dns.tag, "Nexus-DNS");
+  assert.deepEqual(xray.config.routing.rules[0].inboundTag, ["Nexus-DNS"]);
   assert.equal(xray.config.routing.rules[0].ruleTag, "Nexus-DNS-Route");
   assert.ok(xray.config.routing.rules.some((rule) => rule.outboundTag === "exit"));
   assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-IPv6-Blackhole" && rule.outboundTag === "Nexus-Blackhole"));
