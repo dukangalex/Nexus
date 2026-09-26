@@ -128,6 +128,7 @@ test("compiles a resolved chain through the full unified pipeline for all kernel
   assert.equal(xray.config.outbounds.find((o) => o.tag === "exit").streamSettings.sockopt.dialerProxy, "entry");
   assert.equal(xray.config.routing.rules[0].outboundTag, "exit");
   assert.equal(xray.config.routing.rules[1].outboundTag, "exit");
+  assert.equal(xray.config.routing.rules[2].outboundTag, "exit");
 });
 
 test("resolves chain groups from unified group arrays before kernel compilation", () => {
@@ -207,7 +208,7 @@ test("compiles a state-aware nested group chain consistently across kernels", ()
   const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
   assert.equal(xray.chains[0].hops.join(","), "entry-id,exit-id");
   assert.equal(xray.config.outbounds.find((o) => o.tag === "Exit Name").streamSettings.sockopt.dialerProxy, "Entry Name");
-  assert.equal(xray.config.routing.rules[0].outboundTag, "Exit Name");
+  assert.equal(xray.config.routing.rules[1].outboundTag, "Exit Name");
 });
 
 test("fails closed when a chain group becomes entirely unusable", () => {
