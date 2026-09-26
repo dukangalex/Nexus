@@ -58,8 +58,9 @@ function validateRoutingSemantics(config, errors) {
     return;
   }
   const fallback = routing.defaultAction;
-  if (!fallback || typeof fallback !== "object" || !fallback.type) {
-    errors.push(Object.freeze({ code: "ROUTING_DEFAULT_REQUIRED", severity: "error", key: "routing.defaultAction", message: "fail-closed routing requires an explicit default action", value: fallback || null }));
+  if (fallback === undefined || fallback === null) return;
+  if (typeof fallback !== "object" || !fallback.type) {
+    errors.push(Object.freeze({ code: "ROUTING_DEFAULT_REQUIRED", severity: "error", key: "routing.defaultAction", message: "configured default action is invalid", value: fallback || null }));
     return;
   }
   if (fallback.type === "reject") return;
