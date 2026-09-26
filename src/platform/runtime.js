@@ -33,9 +33,9 @@ export function createPlatformRuntime(implementation, runtime) {
     return true;
   }
 
-  async function disableKillSwitch(releaseReason = "kill-switch-release") {
+  async function disableKillSwitch(releaseReason = "kill-switch-release", transitionReason = "kill-switch-transition") {
     if (!killSwitchEnabled) return;
-    await bridge.enableNetworkBlock("kill-switch-transition");
+    await bridge.enableNetworkBlock(transitionReason);
     killSwitchEnabled = true;
     await bridge.stopTun();
     await bridge.disableNetworkBlock(releaseReason);
@@ -86,7 +86,7 @@ export function createPlatformRuntime(implementation, runtime) {
         unsubscribe = null;
       }
       if (killSwitchEnabled) {
-        await disableKillSwitch("kill-switch-stop");
+        await disableKillSwitch("kill-switch-stop", "kill-switch-stop");
       }
       await bridge.stop();
       await runtime.stop();
