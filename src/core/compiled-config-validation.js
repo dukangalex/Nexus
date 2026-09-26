@@ -16,7 +16,7 @@ function push(errors, message) {
 }
 
 const MIHOMO_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","hysteria2","tuic","anytls","wireguard"]);
-const SING_BOX_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","hysteria2","tuic","anytls","wireguard"]);
+const SING_BOX_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","hysteria2","tuic","anytls","wireguard","block"]);
 const XRAY_TYPES = new Set(["http","socks","shadowsocks","vmess","vless","trojan","hysteria","wireguard"]);
 
 function validateEndpoint(item, label, errors) {
