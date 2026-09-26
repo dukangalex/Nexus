@@ -55,7 +55,9 @@ function applySecurityRules(output, config) {
   const rules = [];
   if (security.ipv6LeakBlackhole === true) rules.push("IP-CIDR6,::/0,REJECT");
   if (security.blockWebRTC3478 === true) rules.push("DST-PORT,3478,REJECT");
-  output.rules = rules.concat(output.rules || []);
+  const terminalIndex = (output.rules || []).findIndex((rule) => typeof rule === "string" && rule.indexOf("MATCH,") === 0);
+  if (terminalIndex >= 0) output.rules.splice(terminalIndex, 0, ...rules);
+  else output.rules = (output.rules || []).concat(rules);
   return output;
 }
 
@@ -65,20 +67,19 @@ export function compileMihomoConfig(config) {
   output.dns = compileDnsConfig(config, Kernels.MIHOMO);
   if (config.routing && Object.keys(config.routing).length) {
     output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);
-    applySecurityRules(output, config);
     const fallback = config.routing.defaultAction;
     if (fallback) {
       if (fallback.type === "route") output.rules.push("MATCH," + fallback.target);
-      else if (fallback.type === "chain" ) output.rules.push("MATCH," + fallback.target);
+      else if (fallback.type === "chain") output.rules.push("MATCH," + fallback.target);
       else if (fallback.type === "reject") output.rules.push("MATCH,REJECT");
       else throw new Error("unsupported Mihomo default routing action: " + fallback.type);
     } else if (config.security?.failClosed !== false) {
       output.rules.push("MATCH,REJECT");
     }
-  } else if (config.security?.failClosed !== false) {
-    output.rules = [];
     applySecurityRules(output, config);
-    output.rules.push("MATCH,REJECT");
+  } else if (config.security?.failClosed !== false) {
+    output.rules = ["MATCH,REJECT"];
+    applySecurityRules(output, config);
   }
   return output;
 }
