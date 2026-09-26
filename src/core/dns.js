@@ -100,7 +100,8 @@ export function compileDnsConfig(config = {}, kernel) {
   if (kernel === Kernels.XRAY) {
     return {
       servers: servers.map((server) => server.url),
-      queryStrategy: "UseIPv4"
+      queryStrategy: "UseIPv4",
+      tag: "Nexus-DNS"
     };
   }
   throw new Error("unsupported DNS kernel: " + kernel);
