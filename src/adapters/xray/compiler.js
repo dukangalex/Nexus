@@ -88,8 +88,8 @@ export function compileXrayConfig(config) {
         ruleTag: "Nexus-DNS-Route"
       });
     }
-    output.routing.rules.push(...compileRoutingPolicy(config.routing, Kernels.XRAY));
     applySecurityRules(output, config);
+    output.routing.rules.push(...compileRoutingPolicy(config.routing, Kernels.XRAY));
     const fallback = config.routing.defaultAction;
     if (fallback && (fallback.type === "route" || fallback.type === "chain")) output.routing.rules.push({ network: "tcp,udp", outboundTag: fallback.target, ruleTag: "Nexus-default" });
     else if (fallback && fallback.type === "reject") output.routing.rules.push({ network: "tcp,udp", outboundTag: "Nexus-Blackhole", ruleTag: "Nexus-default" });
