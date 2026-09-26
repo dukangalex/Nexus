@@ -34,6 +34,7 @@ test("sing-box adapter compiles unified routing and explicit final", () => {
 test("Xray adapter compiles unified routing and explicit default", () => {
   const output = compileXrayConfig({ nodes: [], routing });
   assert.deepEqual(output.routing.rules, [
+    { inboundTag: ["Nexus-DNS"], outboundTag: "US", ruleTag: "Nexus-DNS-Route" },
     { domain: ["domain:google.com"], outboundTag: "US", ruleTag: "Google" },
     { network: "tcp,udp", outboundTag: "US", ruleTag: "Nexus-default" }
   ]);
