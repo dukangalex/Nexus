@@ -79,9 +79,6 @@ export function createPlatformRuntime(implementation, runtime) {
     },
 
     async stop() {
-      if (securityEnabled(arguments)) {
-        try { await bridge.enableNetworkBlock("kill-switch-stop"); } catch {}
-      }
       if (unsubscribe) {
         await unsubscribe();
         unsubscribe = null;
@@ -116,8 +113,5 @@ export function createPlatformRuntime(implementation, runtime) {
     getNetworkState() { return bridge.getNetworkState(); },
   });
 
-  function securityEnabled(args) {
-    return Boolean(args && args.length && args[0] && args[0].security && args[0].security.killSwitch === true);
-  }
   function stateOrNetwork(b) { return b.getNetworkState(); }
 }
