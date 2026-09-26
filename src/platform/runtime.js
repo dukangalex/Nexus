@@ -74,7 +74,7 @@ export function createPlatformRuntime(implementation, runtime) {
         if (security.killSwitch === true) {
           try { await bridge.enableNetworkBlock("kill-switch-start-failed"); } catch {}
           try { await bridge.stopTun(); } catch {}
-          killSwitchEnabled = false;
+          // Keep the kill switch armed after startup failure so stop() can safely release the network block.
         }
         throw error;
       }
