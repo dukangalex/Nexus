@@ -30,6 +30,7 @@ function dnsServers(config) {
   if (!dns || typeof dns !== "object") return [defaultEncryptedDns];
   const raw = dns.servers || dns.nameservers || dns.nameserver;
   if (raw === undefined) return [defaultEncryptedDns];
+  if (Array.isArray(raw) && raw.length === 0) return [];
   return Array.isArray(raw) ? raw : [raw];
 }
 
@@ -38,7 +39,15 @@ export function buildDnsPolicy(overrides = {}) {
 }
 
 export function normalizeEncryptedDns(config = {}) {
-  const servers = dnsServers(config);
+  const source = config && typeof config === "object" && (config.servers !== undefined || config.nameservers !== undefined || config.nameserver !== undefined) && config.dns === undefined
+    ? { dns: config }
+    : config;
+  const servers = dnsServers(source);
+  if (servers.length === 0) {
+    const error = new Error("Nexus requires at least one encrypted DNS over HTTPS server");
+    error.code = "DNS_SERVERS_EMPTY";
+    throw error;
+  }
   const parsed = servers.map(parseEncryptedDns);
   const invalid = parsed.map((item, index) => item ? null : index).filter((index) => index !== null);
   if (invalid.length) {
