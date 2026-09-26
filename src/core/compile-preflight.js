@@ -9,12 +9,13 @@ function diagnostic(code, severity, message, details = {}) {
 
 export function preflightUnifiedConfig(config, kernel = config && config.kernel) {
   if (!config || typeof config !== "object") {
+    const d = diagnostic("CONFIG_INVALID", "error", "unified configuration is required");
     return {
       ok: false,
       kernel: kernel || null,
-      errors: [diagnostic("CONFIG_INVALID", "error", "unified configuration is required")],
+      errors: [d],
       warnings: [],
-      diagnostics: [diagnostic("CONFIG_INVALID", "error", "unified configuration is required")]
+      diagnostics: [d]
     };
   }
 
@@ -69,6 +70,7 @@ export function preflightUnifiedConfig(config, kernel = config && config.kernel)
       version: upstream.stable,
       schemaId: schema.schemaId,
       compatibility,
+      security,
       errors,
       warnings,
       diagnostics: errors.concat(warnings)
