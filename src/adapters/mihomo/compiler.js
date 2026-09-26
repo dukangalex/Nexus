@@ -55,9 +55,15 @@ function applySecurityRules(output, config) {
   const rules = [];
   if (security.ipv6LeakBlackhole === true) rules.push("IP-CIDR6,::/0,REJECT");
   if (security.blockWebRTC3478 === true) rules.push("DST-PORT,3478,REJECT");
-  const terminalIndex = (output.rules || []).findIndex((rule) => typeof rule === "string" && rule.indexOf("MATCH,") === 0);
-  if (terminalIndex >= 0) output.rules.splice(terminalIndex, 0, ...rules);
-  else output.rules = (output.rules || []).concat(rules);
+  const existing = output.rules || [];
+  const terminalIndex = existing.findIndex((rule) => typeof rule === "string" && rule.indexOf("MATCH,") === 0);
+  if (terminalIndex >= 0) {
+    output.rules = existing.slice(0, terminalIndex);
+    output.rules.push(...rules);
+    output.rules.push(...existing.slice(terminalIndex));
+  } else {
+    output.rules = rules.concat(existing);
+  }
   return output;
 }
 
