@@ -55,3 +55,38 @@ test("adapters never silently downgrade plaintext DNS", () => {
   assert.throws(() => compileSingBoxConfig(bad), /encrypted DNS/);
   assert.throws(() => compileXrayConfig(bad), /encrypted DNS/);
 });
+
+test("binds compiled DNS to the configured safe routing target", () => {
+  const base = {
+    nodes: [
+      { id: "entry", name: "entry", protocol: "socks", server: "entry.example", port: 1080 },
+      { id: "exit", name: "exit", protocol: "socks", server: "exit.example", port: 1080 }
+    ],
+    routing: { defaultAction: { type: "route", target: "exit" } }
+  };
+
+  const mihomo = compileMihomoConfig(base);
+  assert.equal(mihomo.dns["respect-rules"], true);
+
+  const sing = compileSingBoxConfig(base);
+  assert.equal(sing.dns.servers[0].detour, "exit");
+
+  const xray = compileXrayConfig(base);
+  assert.equal(xray.dns.tag, "Nexus-DNS");
+  assert.deepEqual(xray.routing.rules[0], {
+    inboundTag: ["Nexus-DNS"],
+    outboundTag: "exit",
+    ruleTag: "Nexus-DNS-Route"
+  });
+});
+
+test("uses the first proxy as the safe DNS transport when no routing target exists", () => {
+  const base = {
+    nodes: [{ id: "proxy-1", name: "proxy-1", protocol: "socks", server: "proxy.example", port: 1080 }]
+  };
+  const sing = compileSingBoxConfig(base);
+  assert.equal(sing.dns.servers[0].detour, "proxy-1");
+
+  const xray = compileXrayConfig(base);
+  assert.equal(xray.routing.rules[0].outboundTag, "proxy-1");
+});
