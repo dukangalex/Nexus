@@ -1,6 +1,7 @@
 import { validateUnifiedCompatibility } from "./compatibility.js";
 import { getKernelSchema } from "./schema-registry.js";
 import { getKernelUpstream } from "./kernel-registry.js";
+import { validateSecurityPolicy } from "./security.js";
 
 function diagnostic(code, severity, message, details = {}) {
   return Object.freeze({ code, severity, message, ...details });
@@ -24,7 +25,11 @@ export function preflightUnifiedConfig(config, kernel = config && config.kernel)
     const upstream = getKernelUpstream(kernel);
     const schema = getKernelSchema(kernel, upstream.stable);
     const compatibility = validateUnifiedCompatibility(config, kernel);
+    const security = validateSecurityPolicy(config);
 
+    for (const item of security.errors) {
+      errors.push(diagnostic(item.code, "error", item.message, { key: item.key, value: item.value }));
+    }
     for (const item of compatibility.unsupported) {
       errors.push(diagnostic("PROTOCOL_UNSUPPORTED", "error", "node protocol is unsupported", {
         id: item.id, protocol: item.protocol, reason: item.reason
