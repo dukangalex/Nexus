@@ -11,7 +11,7 @@ const secureDns = { servers: ["https://dns.example.com/dns-query"] };
 test("normalizes only HTTPS encrypted DNS endpoints", () => {
   assert.equal(normalizeEncryptedDns(secureDns)[0].host, "dns.example.com");
   assert.equal(normalizeEncryptedDns({})[0].url, defaultEncryptedDns);
-  assert.throws(() => normalizeEncryptedDns({ dns: {} }), /requires kernel-portable/);
+  assert.throws(() => normalizeEncryptedDns({ dns: { servers: ["udp://1.1.1.1:53"] } }), /requires kernel-portable/);
 });
 
 test("compiles encrypted DNS to Mihomo native HTTPS nameservers", () => {
