@@ -5,9 +5,7 @@ import { resolveChain } from "../src/core/chain-resolution.js";
 
 test("resolves a multi-hop chain through groups", () => {
   const nodes = [{ id: "entry" }, { id: "relay-1", latencyMs: 50 }, { id: "relay-2", latencyMs: 20 }, { id: "exit" }];
-  const groups = {
-    relay: createGroup({ id: "relay", name: "Relay", type: "url_test", members: ["relay-1", "relay-2"] })
-  };
+  const groups = { relay: createGroup({ id: "relay", name: "Relay", type: "url_test", members: ["relay-1", "relay-2"] }) };
   const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], { nodes, groups });
   assert.equal(result.ok, true);
   assert.deepEqual(result.data.hops.map((node) => node.id), ["entry", "relay-2", "exit"]);
@@ -15,107 +13,62 @@ test("resolves a multi-hop chain through groups", () => {
 
 test("fails closed when a group has no usable members", () => {
   const groups = { relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead"] }) };
-  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
-    nodes: [{ id: "entry" }, { id: "dead", state: "failed" }, { id: "exit" }],
-    groups
-  });
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], { nodes: [{ id: "entry" }, { id: "dead", state: "failed" }, { id: "exit" }], groups });
   assert.equal(result.ok, false);
   assert.match(result.error, /no usable member/);
 });
 
 test("rejects duplicate nodes and self chains", () => {
-  const result = resolveChain([{ id: "entry" }, { id: "entry" }], {
-    nodes: [{ id: "entry" }, { id: "exit" }]
-  });
+  const result = resolveChain([{ id: "entry" }, { id: "entry" }], { nodes: [{ id: "entry" }, { id: "exit" }] });
   assert.equal(result.ok, false);
   assert.match(result.error, /duplicate\/self/);
 });
 
 test("rejects nested chain cycles", () => {
   const cyclic = { id: "loop", chain: [{ id: "entry" }, { id: "loop", chain: [{ id: "entry" }, { id: "exit" }] }] };
-  const result = resolveChain([cyclic, { id: "exit" }], {
-    nodes: [{ id: "entry" }, { id: "exit" }]
-  });
+  const result = resolveChain([cyclic, { id: "exit" }], { nodes: [{ id: "entry" }, { id: "exit" }] });
   assert.equal(result.ok, false);
   assert.match(result.error, /cycle/);
 });
 
 test("enforces maximum nested chain depth", () => {
   const nested = { id: "deep", chain: [{ id: "relay" }, { id: "exit" }] };
-  const result = resolveChain([{ id: "entry" }, nested], {
-    nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }],
-    maxDepth: 1
-  });
+  const result = resolveChain([{ id: "entry" }, nested], { nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }], maxDepth: 1 });
   assert.equal(result.ok, true);
-
-  const limited = resolveChain([
-    { id: "entry" },
-    { id: "outer", chain: [{ id: "relay" }, { id: "inner", chain: [{ id: "relay" }, { id: "exit" }] }] }
-  ], {
-    nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }],
-    maxDepth: 1
-  });
+  const limited = resolveChain([{ id: "entry" }, { id: "outer", chain: [{ id: "relay" }, { id: "inner", chain: [{ id: "relay" }, { id: "exit" }] }] }], { nodes: [{ id: "entry" }, { id: "relay" }, { id: "exit" }], maxDepth: 1 });
   assert.equal(limited.ok, false);
   assert.match(limited.error, /depth exceeded/);
 });
 
 test("skips failed nested group members and keeps a healthy chain hop", () => {
-  const groups = {
-    dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }),
-    healthy: createGroup({ id: "healthy", name: "Healthy", type: "fallback", members: ["relay-ok"] }),
-    relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead", "healthy"] })
-  };
-  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
-    nodes: [
-      { id: "entry" },
-      { id: "relay-dead", state: "failed" },
-      { id: "relay-ok", latencyMs: 20 },
-      { id: "exit" }
-    ],
-    groups,
-    states: {
-      "relay-dead": { state: "failed" },
-      "relay-ok": { state: "available" }
-    }
-  });
+  const groups = { dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }), healthy: createGroup({ id: "healthy", name: "Healthy", type: "fallback", members: ["relay-ok"] }), relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead", "healthy"] }) };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], { nodes: [{ id: "entry" }, { id: "relay-dead", state: "failed" }, { id: "relay-ok", latencyMs: 20 }, { id: "exit" }], groups, states: { "relay-dead": { state: "failed" }, "relay-ok": { state: "available" } } });
   assert.equal(result.ok, true);
   assert.deepEqual(result.data.hops.map((node) => node.id), ["entry", "relay-ok", "exit"]);
 });
 
 test("fails closed when every nested group member is unavailable", () => {
-  const groups = {
-    dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }),
-    relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead"] })
-  };
-  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
-    nodes: [
-      { id: "entry" },
-      { id: "relay-dead" },
-      { id: "exit" }
-    ],
-    groups,
-    states: {
-      "relay-dead": "disabled"
-    }
-  });
+  const groups = { dead: createGroup({ id: "dead", name: "Dead", type: "fallback", members: ["relay-dead"] }), relay: createGroup({ id: "relay", name: "Relay", type: "fallback", members: ["dead"] }) };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], { nodes: [{ id: "entry" }, { id: "relay-dead" }, { id: "exit" }], groups, states: { "relay-dead": "disabled" } });
   assert.equal(result.ok, false);
   assert.match(result.error, /no usable member/);
 });
 
 test("uses snapshot degraded state penalty during group selection", () => {
-  const groups = {
-    relay: createGroup({ id: "relay", name: "Relay", type: "url_test", members: ["slow", "degraded"] })
-  };
-  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
-    nodes: [
-      { id: "entry" },
-      { id: "slow", latencyMs: 100 },
-      { id: "degraded", latencyMs: 10 },
-      { id: "exit" }
-    ],
-    groups,
-    states: { degraded: "degraded", slow: "active" }
-  });
+  const groups = { relay: createGroup({ id: "relay", name: "Relay", type: "url_test", members: ["slow", "degraded"] }) };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], { nodes: [{ id: "entry" }, { id: "slow", latencyMs: 100 }, { id: "degraded", latencyMs: 10 }, { id: "exit" }], groups, states: { degraded: "degraded", slow: "active" } });
   assert.equal(result.ok, true);
   assert.equal(result.data.hops[1].id, "slow");
+});
+
+test("self-healing forces a select group to reselect instead of retaining a stale selection", () => {
+  const groups = { relay: createGroup({ id: "relay", name: "Relay", type: "select", members: ["bad", "good"], options: { selected: "bad" } }) };
+  const result = resolveChain([{ id: "entry" }, { group: "relay" }, { id: "exit" }], {
+    nodes: [{ id: "entry" }, { id: "bad", state: "failed" }, { id: "good", state: "available" }, { id: "exit" }],
+    groups,
+    states: { bad: "failed", good: "available" },
+    healing: { reselectGroups: new Set(["relay"]) }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.hops[1].id, "good");
 });
