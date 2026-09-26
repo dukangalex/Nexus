@@ -128,9 +128,11 @@ test("compiles a resolved chain through the full unified pipeline for all kernel
 
   const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
   assert.equal(xray.config.outbounds.find((o) => o.tag === "exit").streamSettings.sockopt.dialerProxy, "entry");
-  assert.equal(xray.config.routing.rules[0].outboundTag, "exit");
+  assert.equal(xray.config.routing.rules[0].ruleTag, "Nexus-DNS-Route");
   assert.equal(xray.config.routing.rules[1].outboundTag, "exit");
-  assert.equal(xray.config.routing.rules[2].outboundTag, "exit");
+  assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-IPv6-Blackhole" && rule.outboundTag === "Nexus-Blackhole"));
+  assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-WebRTC-3478" && rule.outboundTag === "Nexus-Blackhole"));
+  assert.equal(xray.config.routing.rules.at(-1).outboundTag, "exit");
 });
 
 test("resolves chain groups from unified group arrays before kernel compilation", () => {
