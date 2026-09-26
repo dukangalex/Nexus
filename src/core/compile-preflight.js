@@ -13,7 +13,7 @@ export function preflightUnifiedConfig(config, kernel = config && config.kernel)
       kernel: kernel || null,
       errors: [diagnostic("CONFIG_INVALID", "error", "unified configuration is required")],
       warnings: [],
-      diagnostics: []
+      diagnostics: [diagnostic("CONFIG_INVALID", "error", "unified configuration is required")]
     };
   }
 
