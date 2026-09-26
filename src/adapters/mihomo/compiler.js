@@ -58,9 +58,14 @@ export function compileMihomoConfig(config) {
     const fallback = config.routing.defaultAction;
     if (fallback) {
       if (fallback.type === "route") output.rules.push("MATCH," + fallback.target);
+      else if (fallback.type === "chain" ) output.rules.push("MATCH," + fallback.target);
       else if (fallback.type === "reject") output.rules.push("MATCH,REJECT");
       else throw new Error("unsupported Mihomo default routing action: " + fallback.type);
+    } else if (config.security?.failClosed !== false) {
+      output.rules.push("MATCH,REJECT");
     }
+  } else if (config.security?.failClosed !== false) {
+    output.rules = ["MATCH,REJECT"];
   }
   return output;
 }
