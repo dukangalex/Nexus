@@ -58,9 +58,7 @@ function applySecurityRules(output, config) {
   const existing = output.rules || [];
   const terminalIndex = existing.findIndex((rule) => typeof rule === "string" && rule.indexOf("MATCH,") === 0);
   if (terminalIndex >= 0) {
-    output.rules = existing.slice(0, terminalIndex);
-    output.rules.push(...rules);
-    output.rules.push(...existing.slice(terminalIndex));
+    output.rules = rules.concat(existing);
   } else {
     output.rules = rules.concat(existing);
   }
