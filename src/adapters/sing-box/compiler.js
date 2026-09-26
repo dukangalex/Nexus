@@ -44,13 +44,21 @@ function compileNode(node) {
   if (source.method !== undefined && type === "shadowsocks") output.method = clone(source.method);
   return output;
 }
-function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.ipv6LeakBlackhole === true) output.route.rules.push({ ip_cidr: ["::/0"], action: "reject" });\n  if (security.blockWebRTC3478 === true) output.route.rules.push({ port: [3478], action: "reject" });\n  return output;\n}\n\nexport function compileSingBoxConfig(config) {
+function applySecurityRules(output, config) {
+  const security = config.security || {};
+  if (security.ipv6LeakBlackhole === true) output.route.rules.push({ ip_cidr: ["::/0"], action: "reject" });
+  if (security.blockWebRTC3478 === true) output.route.rules.push({ port: [3478], action: "reject" });
+  return output;
+}
+
+export function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
   const failClosed = config.security?.failClosed !== false;
   if (config.routing && Object.keys(config.routing).length) {
     output.route = { rules: compileRoutingPolicy(config.routing, Kernels.SING_BOX) };
+    applySecurityRules(output, config);
     const fallback = config.routing.defaultAction;
     if (fallback) {
       if (fallback.type === "route" || fallback.type === "chain") output.route.final = fallback.target;
@@ -61,6 +69,7 @@ function applySecurityRules(output, config) {\n  const security = config.securit
     }
   } else if (failClosed) {
     output.route = { rules: [], final: "Nexus-Blackhole" };
+    applySecurityRules(output, config);
   }
   if (failClosed || (config.routing?.rules || []).some((rule) => rule?.action?.type === "reject")) {
     if (!output.outbounds.some((o) => o && o.tag === "Nexus-Blackhole")) output.outbounds.push({ type: "block", tag: "Nexus-Blackhole" });
