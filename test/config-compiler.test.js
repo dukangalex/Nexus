@@ -250,3 +250,47 @@ test("directly routed unsupported groups still fail closed", () => {
     routing: { defaultAction: { type: "route", target: "exit-group" } }
   }), /Xray does not support unified group type without semantic downgrade: fallback/);
 });
+
+
+test("materializes fail-closed terminal routing for all kernels", () => {
+  const base = {
+    nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
+    groups: []
+  };
+
+  const mihomo = compileUnifiedConfig({ ...base, kernel: Kernels.MIHOMO });
+  assert.equal(mihomo.config.rules.at(-1), "MATCH,REJECT");
+
+  const sing = compileUnifiedConfig({ ...base, kernel: Kernels.SING_BOX });
+  assert.equal(sing.config.route.final, "Nexus-Blackhole");
+  assert.deepEqual(sing.config.outbounds.at(-1), { type: "block", tag: "Nexus-Blackhole" });
+  assert.equal(sing.validation.ok, true);
+
+  const xray = compileUnifiedConfig({ ...base, kernel: Kernels.XRAY });
+  assert.equal(xray.config.routing.rules.at(-1).outboundTag, "Nexus-Blackhole");
+  assert.equal(xray.config.outbounds.at(-1).protocol, "blackhole");
+});
+
+test("preserves explicit secure routing default targets", () => {
+  const base = {
+    nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
+    routing: { defaultAction: { type: "route", target: "us-1" } }
+  };
+
+  const mihomo = compileUnifiedConfig({ ...base, kernel: Kernels.MIHOMO });
+  assert.equal(mihomo.config.rules.at(-1), "MATCH,us-1");
+
+  const sing = compileUnifiedConfig({ ...base, kernel: Kernels.SING_BOX });
+  assert.equal(sing.config.route.final, "us-1");
+
+  const xray = compileUnifiedConfig({ ...base, kernel: Kernels.XRAY });
+  assert.equal(xray.config.routing.rules.at(-1).outboundTag, "us-1");
+});
+
+test("rejects unsafe explicit routing default actions during preflight", () => {
+  assert.throws(() => compileUnifiedConfig({
+    kernel: Kernels.MIHOMO,
+    nodes: [{ id: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
+    routing: { defaultAction: { type: "implicit-direct" } }
+  }), /not safely compilable/);
+});
