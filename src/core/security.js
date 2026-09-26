@@ -1,3 +1,4 @@
+import { normalizeEncryptedDns } from "./dns.js";
 export const securityDefaults = Object.freeze({
   killSwitch: true,
   failClosed: true,
@@ -18,35 +19,28 @@ export const SecurityRequirements = Object.freeze([
   Object.freeze({ key: "encryptedDns", code: "ENCRYPTED_DNS_REQUIRED", message: "encrypted DNS must remain enabled" })
 ]);
 
-function dnsServerEncrypted(server) {
-  if (typeof server !== "string") {
-    if (!server || typeof server !== "object") return null;
-    const type = String(server.type || server.protocol || "").trim().toLowerCase();
-    return ["tls", "https", "h3", "quic", "doq", "doh", "dot"].includes(type) ? true : (type ? false : null);
-  }
-  const value = server.trim().toLowerCase();
-  if (!value) return null;
-  if (/^(https|h3|quic|tls|dot|doq):\/\//.test(value)) return true;
-  if (/^(udp|tcp):\/\//.test(value) || /^[^:/]+(?::\d+)?$/.test(value)) return false;
-  return null;
-}
-
 function validateDnsSemantics(config, errors) {
   const dns = config && config.dns;
-  if (!dns || typeof dns !== "object" || !Object.keys(dns).length) return;
-  if (dns.encrypted === false || dns.enable_encrypted === false || dns.encrypted_dns === false) {
+  if (dns !== undefined && (dns === null || typeof dns !== "object")) {
+    errors.push(Object.freeze({ code: "DNS_CONFIG_INVALID", severity: "error", key: "dns", message: "DNS configuration must be an object", value: dns }));
+    return;
+  }
+  if (dns && (dns.encrypted === false || dns.enable_encrypted === false || dns.encrypted_dns === false)) {
     errors.push(Object.freeze({ code: "DNS_ENCRYPTION_DISABLED", severity: "error", key: "dns.encrypted", message: "configured DNS explicitly disables encryption", value: false }));
   }
-  if (dns.ipv6LeakProtection === false || dns.ipv6_leak_protection === false) {
+  if (dns && (dns.ipv6LeakProtection === false || dns.ipv6_leak_protection === false)) {
     errors.push(Object.freeze({ code: "DNS_IPV6_LEAK_PROTECTION_DISABLED", severity: "error", key: "dns.ipv6LeakProtection", message: "configured DNS explicitly disables IPv6 leak protection", value: false }));
   }
-  const servers = dns.servers || dns.nameservers || dns.nameserver;
-  if (servers !== undefined) {
-    for (const server of (Array.isArray(servers) ? servers : [servers])) {
-      if (dnsServerEncrypted(server) === false) {
-        errors.push(Object.freeze({ code: "DNS_PLAINTEXT_SERVER", severity: "error", key: "dns.servers", message: "configured DNS server is not encrypted", value: typeof server === "string" ? server : server && (server.type || server.protocol || "object") }));
-      }
-    }
+  try {
+    normalizeEncryptedDns(config);
+  } catch (error) {
+    errors.push(Object.freeze({
+      code: error.code || "DNS_ENCRYPTED_ENDPOINT_UNSUPPORTED",
+      severity: "error",
+      key: "dns.servers",
+      message: error.message,
+      value: dns && (dns.servers || dns.nameservers || dns.nameserver)
+    }));
   }
 }
 
