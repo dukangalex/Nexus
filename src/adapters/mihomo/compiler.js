@@ -49,7 +49,7 @@ function compileNode(node) {
   if (source.privateKey !== undefined && output["private-key"] === undefined) output["private-key"] = clone(source.privateKey);
   return output;
 }
-export function compileMihomoConfig(config) {
+function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.blockWebRTC3478 === true) output.rules.unshift("DST-PORT,3478,REJECT");\n  if (security.ipv6LeakBlackhole === true) output.rules.unshift("IP-CIDR6,::/0,REJECT");\n  return output;\n}\n\nexport function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
