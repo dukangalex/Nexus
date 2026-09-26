@@ -44,7 +44,7 @@ function compileNode(node) {
   if (source.method !== undefined && type === "shadowsocks") output.method = clone(source.method);
   return output;
 }
-export function compileSingBoxConfig(config) {
+function applySecurityRules(output, config) {\n  const security = config.security || {};\n  if (security.blockWebRTC3478 === true) output.route.rules.unshift({ port: [3478], action: "reject" });\n  if (security.ipv6LeakBlackhole === true) output.route.rules.unshift({ ip_cidr: ["::/0"], action: "reject" });\n  return output;\n}\n\nexport function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
