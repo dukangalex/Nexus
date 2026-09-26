@@ -77,6 +77,7 @@ function compileSingBoxRule(rule) {
   switch (rule.action.type) {
     case "route":
     case "chain":
+    case "bypass":
       output.action = "route";
       output.outbound = requireTarget(rule);
       break;
@@ -123,6 +124,7 @@ function compileXrayRule(rule) {
   switch (rule.action.type) {
     case "route":
     case "chain":
+    case "bypass":
       output.outboundTag = requireTarget(rule);
       break;
     case "reject":
