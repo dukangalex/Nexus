@@ -19,8 +19,8 @@ export const KernelFeatureManifest = Object.freeze({
   [Kernels.SING_BOX]: Object.freeze({
     "tls.reality": Object.freeze({ protocols: ["vless", "vmess", "trojan"] }),
     "transport.websocket": Object.freeze({ protocols: ["vless", "vmess", "trojan", "shadowsocks"] }),
-    "transport.grpc": Object.freeze({ protocols: ["vless", "vmess", "trojan"] }),
-    "transport.quic": Object.freeze({ protocols: ["vless", "vmess", "trojan"] }),
+    "transport.grpc": Object.freeze({ protocols: ["vless", "vmess", "trojan", "hysteria"] }),
+    "transport.quic": Object.freeze({ protocols: ["vless", "vmess", "trojan", "hysteria", "hysteria2", "tuic"] }),
     "multiplex": Object.freeze({ protocols: ["vless", "vmess", "trojan", "shadowsocks", "hysteria2", "tuic"] })
   }),
   [Kernels.XRAY]: Object.freeze({
@@ -35,13 +35,22 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeTransport(value) {
+  const transport = normalize(value);
+  if (transport === "websocket") return "ws";
+  return transport;
+}
+
 function featureOf(node) {
   const tls = node && node.tls && typeof node.tls === "object" ? node.tls : {};
   const transport = node && node.transport && typeof node.transport === "object" ? node.transport : {};
   const features = [];
   if (tls.reality && typeof tls.reality === "object" ? tls.reality.enabled !== false : tls.reality === true) features.push(["tls.reality", null]);
-  const transportType = normalize(node.network || transport.type);
-  if (transportType) features.push(["transport." + transportType, transportType]);
+  const transportType = normalizeTransport(node.network || transport.type);
+  if (transportType) {
+    const featureName = transportType === "ws" ? "transport.websocket" : "transport." + transportType;
+    features.push([featureName, transportType]);
+  }
   if (node.multiplex === true || node.mux === true || (node.multiplex && typeof node.multiplex === "object" && node.multiplex.enabled !== false)) {
     features.push(["multiplex", null]);
   }
