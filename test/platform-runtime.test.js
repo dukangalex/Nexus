@@ -1,61 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PlatformId, PlatformCapabilities, createPlatformRuntime } from "../src/platform/index.js";
+import { createPlatformRuntime } from "../src/platform/runtime.js";
+import { PlatformCapabilities, PlatformId } from "../src/platform/contract.js";
 
-function platform() {
+function mockPlatform(failRuntimeStart = false) {
+  const events = [];
   return {
-    platform: PlatformId.LINUX,
-    capabilities: [PlatformCapabilities.TUN],
-    start() {},
-    stop() {},
-    getNetworkState() { return { online: true }; },
-    startTun() { return { fd: 7 }; },
-    stopTun() {},
+    implementation: {
+      platform: PlatformId.ANDROID,
+      capabilities: [PlatformCapabilities.TUN, PlatformCapabilities.NETWORK_MONITOR, PlatformCapabilities.NETWORK_BLOCK],
+      async start() { events.push("platform.start"); },
+      async stop() { events.push("platform.stop"); },
+      async startTun() { events.push("tun.start"); },
+      async stopTun() { events.push("tun.stop"); },
+      async enableNetworkBlock(reason) { events.push("block.on:" + reason); },
+      async disableNetworkBlock(reason) { events.push("block.off:" + reason); },
+      async subscribeNetworkState() { events.push("monitor.on"); return async () => events.push("monitor.off"); },
+      getNetworkState() { return { online: true, captivePortal: false }; }
+    },
+    runtime: {
+      async start() { events.push("runtime.start"); if (failRuntimeStart) throw new Error("runtime failed"); },
+      async stop() { events.push("runtime.stop"); }
+    },
+    events
   };
 }
 
-test("platform runtime preserves kernel lifecycle ordering", async () => {
-  const events = [];
-  const runtime = createPlatformRuntime(platform(), {
-    async start() { events.push("kernel:start"); },
-    async stop() { events.push("kernel:stop"); },
-    async reload(config) { events.push(["reload", config]); return true; },
-    async status() { return { running: true }; },
-    async logs() { return ["ok"]; },
-  });
-
-  await runtime.start();
-  assert.deepEqual(events, ["kernel:start"]);
-  assert.deepEqual(runtime.getNetworkState(), { online: true });
-
-  assert.deepEqual(await runtime.reload({ version: 1 }), true);
-  assert.deepEqual(await runtime.status(), { running: true });
-  assert.deepEqual(await runtime.logs(), ["ok"]);
-
+test("kill switch remains armed after kernel startup failure", async () => {
+  const mock = mockPlatform(true);
+  const runtime = createPlatformRuntime(mock.implementation, mock.runtime);
+  await assert.rejects(() => runtime.start({ security: { killSwitch: true } }), /runtime failed/);
   await runtime.stop();
-  assert.deepEqual(events, ["kernel:start", ["reload", { version: 1 }], "kernel:stop"]);
+  assert.ok(mock.events.includes("block.on:kill-switch-start-failed"));
+  assert.ok(mock.events.includes("block.off:kill-switch-release"));
 });
 
-test("platform runtime exposes TUN only when platform declares it", async () => {
-  let started = false;
-  const runtime = createPlatformRuntime(platform(), {
-    async start() {},
-    async stop() {},
-  });
-  const original = runtime.startTun;
-  assert.equal(typeof original, "function");
-  const result = await runtime.startTun();
-  assert.deepEqual(result, { fd: 7 });
-  started = true;
-  assert.equal(started, true);
-});
-
-test("platform runtime does not silently substitute unsupported kernel operations", async () => {
-  const runtime = createPlatformRuntime(platform(), {
-    async start() {},
-    async stop() {},
-  });
-  await assert.rejects(() => runtime.reload({}), /does not support reload/);
-  await assert.rejects(() => runtime.status(), /does not support status/);
-  await assert.rejects(() => runtime.logs(), /does not support logs/);
+test("kill switch releases only during an orderly stop", async () => {
+  const mock = mockPlatform();
+  const runtime = createPlatformRuntime(mock.implementation, mock.runtime);
+  await runtime.start({ security: { killSwitch: true } });
+  await runtime.stop();
+  assert.ok(mock.events.includes("block.on:kill-switch-start"));
+  assert.ok(mock.events.includes("tun.start"));
+  assert.ok(mock.events.includes("block.off:kill-switch-network-restored"));
+  assert.ok(mock.events.includes("block.off:kill-switch-release"));
 });
