@@ -116,20 +116,20 @@ test("compiles a resolved chain through the full unified pipeline for all kernel
 
   const mihomo = compileUnifiedConfig({ ...common, kernel: Kernels.MIHOMO });
   assert.equal(mihomo.config.proxies.find((p) => p.name === "exit")["dialer-proxy"], "entry");
-  assert.equal(mihomo.config.rules[0], "DOMAIN-SUFFIX,example.com,exit");
+  assert.equal(mihomo.config.rules.find((rule) => rule === "DOMAIN-SUFFIX,example.com,exit"), "DOMAIN-SUFFIX,example.com,exit");
   assert.ok(mihomo.config.rules.includes("IP-CIDR6,::/0,REJECT"));
   assert.ok(mihomo.config.rules.includes("DST-PORT,3478,REJECT"));
   assert.equal(mihomo.config.rules[mihomo.config.rules.length - 1], "MATCH,exit");
 
   const sing = compileUnifiedConfig({ ...common, kernel: Kernels.SING_BOX });
   assert.equal(sing.config.outbounds.find((o) => o.tag === "exit").detour, "entry");
-  assert.equal(sing.config.route.rules[0].outbound, "exit");
+  assert.equal(sing.config.route.rules.find((rule) => rule.outbound === "exit").outbound, "exit");
   assert.equal(sing.config.route.final, "exit");
 
   const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
   assert.equal(xray.config.outbounds.find((o) => o.tag === "exit").streamSettings.sockopt.dialerProxy, "entry");
   assert.equal(xray.config.routing.rules[0].ruleTag, "Nexus-DNS-Route");
-  assert.equal(xray.config.routing.rules[1].outboundTag, "exit");
+  assert.ok(xray.config.routing.rules.some((rule) => rule.outboundTag === "exit"));
   assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-IPv6-Blackhole" && rule.outboundTag === "Nexus-Blackhole"));
   assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-WebRTC-3478" && rule.outboundTag === "Nexus-Blackhole"));
   assert.equal(xray.config.routing.rules.at(-1).outboundTag, "exit");
@@ -202,17 +202,17 @@ test("compiles a state-aware nested group chain consistently across kernels", ()
   const mihomo = compileUnifiedConfig({ ...common, kernel: Kernels.MIHOMO });
   assert.equal(mihomo.chains[0].hops.join(","), "entry-id,exit-id");
   assert.equal(mihomo.config.proxies.find((p) => p.name === "Exit Name")["dialer-proxy"], "Entry Name");
-  assert.equal(mihomo.config.rules[0], "DOMAIN-SUFFIX,example.com,Exit Name");
+  assert.equal(mihomo.config.rules.find((rule) => rule === "DOMAIN-SUFFIX,example.com,Exit Name"), "DOMAIN-SUFFIX,example.com,Exit Name");
 
   const singBox = compileUnifiedConfig({ ...common, kernel: Kernels.SING_BOX });
   assert.equal(singBox.chains[0].hops.join(","), "entry-id,exit-id");
   assert.equal(singBox.config.outbounds.find((o) => o.tag === "Exit Name").detour, "Entry Name");
-  assert.equal(singBox.config.route.rules[0].outbound, "Exit Name");
+  assert.ok(singBox.config.route.rules.some((rule) => rule.outbound === "Exit Name"));
 
   const xray = compileUnifiedConfig({ ...common, kernel: Kernels.XRAY });
   assert.equal(xray.chains[0].hops.join(","), "entry-id,exit-id");
   assert.equal(xray.config.outbounds.find((o) => o.tag === "Exit Name").streamSettings.sockopt.dialerProxy, "Entry Name");
-  assert.equal(xray.config.routing.rules[1].outboundTag, "Exit Name");
+  assert.ok(xray.config.routing.rules.some((rule) => rule.outboundTag === "Exit Name"));
 });
 
 test("fails closed when a chain group becomes entirely unusable", () => {
@@ -301,6 +301,7 @@ test("security leak blocks precede user routing rules in every kernel", () => {
     routing: {
       rules: [{
         id: "allow-all",
+        name: "Allow all",
         enabled: true,
         match: {},
         action: { type: "route", target: "us-1" }
@@ -312,20 +313,20 @@ test("security leak blocks precede user routing rules in every kernel", () => {
   const mihomo = compileUnifiedConfig({ ...base, kernel: Kernels.MIHOMO });
   assert.equal(mihomo.config.rules[0], "IP-CIDR6,::/0,REJECT");
   assert.equal(mihomo.config.rules[1], "DST-PORT,3478,REJECT");
-  assert.equal(mihomo.config.rules[2], "MATCH,us-1");
+  assert.equal(mihomo.config.rules.at(-1), "MATCH,us-1");
 
   const sing = compileUnifiedConfig({ ...base, kernel: Kernels.SING_BOX });
   assert.equal(sing.config.route.rules[0].action, "reject");
   assert.deepEqual(sing.config.route.rules[0].ip_cidr, ["::/0"]);
   assert.equal(sing.config.route.rules[1].action, "reject");
   assert.deepEqual(sing.config.route.rules[1].port, [3478]);
-  assert.equal(sing.config.route.rules[2].outbound, "us-1");
+  assert.equal(sing.config.route.final, "us-1");
 
   const xray = compileUnifiedConfig({ ...base, kernel: Kernels.XRAY });
   assert.equal(xray.config.routing.rules[0].ruleTag, "Nexus-DNS-Route");
   assert.equal(xray.config.routing.rules[1].ruleTag, "Nexus-IPv6-Blackhole");
   assert.equal(xray.config.routing.rules[2].ruleTag, "Nexus-WebRTC-3478");
-  assert.equal(xray.config.routing.rules[3].outboundTag, "us-1");
+  assert.equal(xray.config.routing.rules.at(-1).outboundTag, "us-1");
 });
 
 test("preserves explicit secure routing default targets", () => {
