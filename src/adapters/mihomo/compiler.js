@@ -60,7 +60,7 @@ function applySecurityRules(output, config) {
 export function compileMihomoConfig(config) {
   const output = { proxies: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output["proxy-groups"] = clone(config.groups);
-  if (config.security?.encryptedDns === true || (config.dns && Object.keys(config.dns).length)) output.dns = compileDnsConfig(config, Kernels.MIHOMO);
+  output.dns = compileDnsConfig(config, Kernels.MIHOMO);
   if (config.routing && Object.keys(config.routing).length) {
     output.rules = compileRoutingPolicy(config.routing, Kernels.MIHOMO);
     applySecurityRules(output, config);
