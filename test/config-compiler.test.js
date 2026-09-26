@@ -303,7 +303,7 @@ test("security leak blocks precede user routing rules in every kernel", () => {
         id: "allow-all",
         name: "Allow all",
         enabled: true,
-        match: {},
+        match: { port: [3478] },
         action: { type: "route", target: "us-1" }
       }],
       defaultAction: { type: "route", target: "us-1" }
