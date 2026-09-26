@@ -52,8 +52,10 @@ function compileNode(node) {
 }
 function applySecurityRules(output, config) {
   const security = config.security || {};
-  if (security.ipv6LeakBlackhole === true) output.rules.push("IP-CIDR6,::/0,REJECT");
-  if (security.blockWebRTC3478 === true) output.rules.push("DST-PORT,3478,REJECT");
+  const rules = [];
+  if (security.ipv6LeakBlackhole === true) rules.push("IP-CIDR6,::/0,REJECT");
+  if (security.blockWebRTC3478 === true) rules.push("DST-PORT,3478,REJECT");
+  output.rules = rules.concat(output.rules || []);
   return output;
 }
 
