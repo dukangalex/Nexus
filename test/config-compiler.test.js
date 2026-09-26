@@ -295,6 +295,39 @@ test("materializes effective security defaults into every kernel compilation", (
   assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-WebRTC-3478"));
 });
 
+test("security leak blocks precede user routing rules in every kernel", () => {
+  const base = {
+    nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
+    routing: {
+      rules: [{
+        id: "allow-all",
+        enabled: true,
+        match: {},
+        action: { type: "route", target: "us-1" }
+      }],
+      defaultAction: { type: "route", target: "us-1" }
+    }
+  };
+
+  const mihomo = compileUnifiedConfig({ ...base, kernel: Kernels.MIHOMO });
+  assert.equal(mihomo.config.rules[0], "IP-CIDR6,::/0,REJECT");
+  assert.equal(mihomo.config.rules[1], "DST-PORT,3478,REJECT");
+  assert.equal(mihomo.config.rules[2], "MATCH,us-1");
+
+  const sing = compileUnifiedConfig({ ...base, kernel: Kernels.SING_BOX });
+  assert.equal(sing.config.route.rules[0].action, "reject");
+  assert.deepEqual(sing.config.route.rules[0].ip_cidr, ["::/0"]);
+  assert.equal(sing.config.route.rules[1].action, "reject");
+  assert.deepEqual(sing.config.route.rules[1].port, [3478]);
+  assert.equal(sing.config.route.rules[2].outbound, "us-1");
+
+  const xray = compileUnifiedConfig({ ...base, kernel: Kernels.XRAY });
+  assert.equal(xray.config.routing.rules[0].ruleTag, "Nexus-DNS-Route");
+  assert.equal(xray.config.routing.rules[1].ruleTag, "Nexus-IPv6-Blackhole");
+  assert.equal(xray.config.routing.rules[2].ruleTag, "Nexus-WebRTC-3478");
+  assert.equal(xray.config.routing.rules[3].outboundTag, "us-1");
+});
+
 test("preserves explicit secure routing default targets", () => {
   const base = {
     nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
