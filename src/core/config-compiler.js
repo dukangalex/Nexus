@@ -134,7 +134,7 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   if (!hasAdapterCapability(adapter, AdapterCapabilities.CONFIG_COMPILE)) throw new Error("kernel does not implement config compilation: " + kernel);
   const preflight = preflightUnifiedConfig(config, kernel);
   if (!preflight.ok) {
-    const error = new Error("configuration preflight failed for " + kernel + ": " + preflight.errors.map((item) => item.code).join(", "));
+    const error = new Error("configuration preflight failed for " + kernel + ": " + preflight.errors.map((item) => item.code).join(", ") + "; not safely compilable");
     error.code = "NEXUS_PREFLIGHT_FAILED";
     error.diagnostics = preflight.diagnostics;
     error.preflight = preflight;
