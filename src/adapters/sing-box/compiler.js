@@ -47,8 +47,10 @@ function compileNode(node) {
 }
 function applySecurityRules(output, config) {
   const security = config.security || {};
-  if (security.ipv6LeakBlackhole === true) output.route.rules.push({ ip_cidr: ["::/0"], action: "reject" });
-  if (security.blockWebRTC3478 === true) output.route.rules.push({ port: [3478], action: "reject" });
+  const rules = [];
+  if (security.ipv6LeakBlackhole === true) rules.push({ ip_cidr: ["::/0"], action: "reject" });
+  if (security.blockWebRTC3478 === true) rules.push({ port: [3478], action: "reject" });
+  output.route.rules = rules.concat(output.route.rules || []);
   return output;
 }
 
