@@ -60,3 +60,33 @@ test("unified routing compiles explicitly to Xray", () => {
     }
   ]);
 });
+
+
+test("bypass action is normalized to managed direct routing across kernels", () => {
+  const bypassPolicy = {
+    mode: "rule",
+    rules: [{
+      id: "domestic",
+      name: "Domestic",
+      match: { geoip: ["CN"] },
+      action: { type: "bypass", target: "Nexus-Direct" },
+      order: 10
+    }],
+    strategies: [],
+    defaultAction: { type: "route", target: "US" }
+  };
+
+  assert.deepEqual(compileRoutingPolicy(bypassPolicy, Kernels.MIHOMO), [
+    "GEOIP,CN,Nexus-Direct"
+  ]);
+  assert.deepEqual(compileRoutingPolicy(bypassPolicy, Kernels.SING_BOX), [{
+    geoip: ["CN"],
+    action: "route",
+    outbound: "Nexus-Direct"
+  }]);
+  assert.deepEqual(compileRoutingPolicy(bypassPolicy, Kernels.XRAY), [{
+    ip: ["geoip:CN"],
+    outboundTag: "Nexus-Direct",
+    ruleTag: "Domestic"
+  }]);
+});
