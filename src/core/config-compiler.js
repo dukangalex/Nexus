@@ -3,6 +3,7 @@ import { AdapterCapabilities, hasAdapterCapability } from "../adapters/contract.
 import { compileGroups } from "./group-compiler.js";
 import { resolveChain } from "./chain-resolution.js";
 import { validateUnifiedCompatibility } from "./compatibility.js";
+import { preflightUnifiedConfig } from "./compile-preflight.js";
 import { validateCompiledConfig } from "./compiled-config-validation.js";
 
 function clone(value) { return value === undefined ? undefined : structuredClone(value); }
@@ -131,13 +132,15 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   const adapter = adapterFor(kernel);
   if (!adapter) throw new Error("unsupported kernel: " + kernel);
   if (!hasAdapterCapability(adapter, AdapterCapabilities.CONFIG_COMPILE)) throw new Error("kernel does not implement config compilation: " + kernel);
-  const compatibility = validateUnifiedCompatibility(config, kernel);
-  if (!compatibility.ok) {
-    const ids = compatibility.unknown.concat(compatibility.unsupported).map((item) => item.id || "unknown");
-    const constraintIds = compatibility.constraintErrors.map((item) => item.code);
-    const details = ids.concat(constraintIds);
-    throw new Error("configuration is not safely compilable for " + kernel + (details.length ? ": " + details.join(", ") : ""));
+  const preflight = preflightUnifiedConfig(config, kernel);
+  if (!preflight.ok) {
+    const error = new Error("configuration preflight failed for " + kernel + ": " + preflight.errors.map((item) => item.code).join(", "));
+    error.code = "NEXUS_PREFLIGHT_FAILED";
+    error.diagnostics = preflight.diagnostics;
+    error.preflight = preflight;
+    throw error;
   }
+  const compatibility = preflight.compatibility;
   const resolvedChains = resolveConfiguredChains(config);
   const compilableGroups = groupsForKernel(config);
   const compiledGroups = compileGroups(compilableGroups, kernel, config.nodes, config.states);
@@ -157,6 +160,7 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
     config: compiled,
     validation,
     compatibility,
+    preflight,
     groups: [...compiledGroups.targetMap.entries()].map(([id, target]) => ({ id, target })),
     chains: [...resolvedChains.values()].map((chain) => ({ id: chain.id, mode: chain.mode, hops: chain.hops.map((node) => node.id) })),
   };
