@@ -26,13 +26,7 @@ function compileNode(node) {
     if (source.tls.insecure) output.tls.insecure = true;
     if (source.tls.fingerprint) output.tls.utls = { enabled: true, fingerprint: source.tls.fingerprint };
     if (source.tls.ech) output.tls.ech = clone(source.tls.ech);
-    if (source.tls.reality?.enabled) {
-      output.tls.reality = {
-        enabled: true,
-        public_key: source.tls.reality.publicKey,
-        short_id: source.tls.reality.shortId
-      };
-    }
+    if (source.tls.reality?.enabled) output.tls.reality = { enabled: true, public_key: source.tls.reality.publicKey, short_id: source.tls.reality.shortId };
   }
   if (source.transport?.type) {
     output.transport = ["ws","http","h2","grpc","xhttp"].includes(source.transport.type) ? { type: source.transport.type } : clone(source.transport.raw || { type: source.transport.type });
@@ -54,13 +48,22 @@ export function compileSingBoxConfig(config) {
   const output = { outbounds: (config.nodes || []).map(compileNode) };
   if (Array.isArray(config.groups) && config.groups.length) output.outbounds.push(...clone(config.groups));
   if (config.dns && Object.keys(config.dns).length) output.dns = clone(config.dns);
+  const failClosed = config.security?.failClosed !== false;
   if (config.routing && Object.keys(config.routing).length) {
     output.route = { rules: compileRoutingPolicy(config.routing, Kernels.SING_BOX) };
     const fallback = config.routing.defaultAction;
     if (fallback) {
       if (fallback.type === "route" || fallback.type === "chain") output.route.final = fallback.target;
+      else if (fallback.type === "reject") output.route.final = "Nexus-Blackhole";
       else throw new Error("unsupported sing-box default routing action: " + fallback.type);
+    } else if (failClosed) {
+      output.route.final = "Nexus-Blackhole";
     }
+  } else if (failClosed) {
+    output.route = { rules: [], final: "Nexus-Blackhole" };
+  }
+  if (failClosed || (config.routing?.rules || []).some((rule) => rule?.action?.type === "reject")) {
+    if (!output.outbounds.some((o) => o && o.tag === "Nexus-Blackhole")) output.outbounds.push({ type: "block", tag: "Nexus-Blackhole" });
   }
   return output;
 }
