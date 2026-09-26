@@ -35,7 +35,7 @@ function validateDnsSemantics(config, errors) {
     normalizeEncryptedDns(config);
   } catch (error) {
     errors.push(Object.freeze({
-      code: error.code || "DNS_ENCRYPTED_ENDPOINT_UNSUPPORTED",
+      code: error.code === "DNS_ENCRYPTED_ENDPOINT_UNSUPPORTED" ? "DNS_PLAINTEXT_SERVER" : (error.code || "DNS_ENCRYPTED_ENDPOINT_UNSUPPORTED"),
       severity: "error",
       key: "dns.servers",
       message: error.message,
