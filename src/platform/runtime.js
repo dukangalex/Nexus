@@ -86,8 +86,7 @@ export function createPlatformRuntime(implementation, runtime) {
         unsubscribe = null;
       }
       if (killSwitchEnabled) {
-        try { await bridge.enableNetworkBlock("kill-switch-stop"); } catch {}
-        try { await bridge.stopTun(); } finally { killSwitchEnabled = false; }
+        await disableKillSwitch();
       }
       await bridge.stop();
       await runtime.stop();
