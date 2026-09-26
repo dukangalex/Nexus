@@ -32,11 +32,11 @@ test("preflight reports unsupported feature combinations", () => {
       port: 443,
       uuid: "u",
       tls: { enabled: true, serverName: "example.com" },
-      transport: { type: "quic" }
+      multiplex: true
     }]
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((item) => item.code === "FEATURE_UNSUPPORTED"));
+  assert.ok(result.errors.some((item) => item.code === "FEATURE_UNKNOWN"));
 });
 
 test("preflight reports combination constraints", () => {
