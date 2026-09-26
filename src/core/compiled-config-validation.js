@@ -1,5 +1,6 @@
 import { Kernels } from "./model.js";
 import { getKernelUpstream } from "./kernel-registry.js";
+import { getKernelSchema } from "./schema-registry.js";
 
 function nonEmptyObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -79,25 +80,45 @@ function validateXrayOutbound(outbound, index, errors) {
   }
 }
 
+function validateRootSchema(config, schema, errors) {
+  if (!nonEmptyObject(config)) {
+    errors.push("compiled configuration must be an object");
+    return;
+  }
+  const root = schema.root || {};
+  for (const key of root.required || []) {
+    if (!Array.isArray(config[key])) push(errors, schema.schemaId + " requires array: " + key);
+  }
+  if (Array.isArray(root.requiredAnyOf) && !root.requiredAnyOf.some((key) => Array.isArray(config[key]))) {
+    push(errors, schema.schemaId + " requires one of: " + root.requiredAnyOf.join(", "));
+  }
+}
+
 export function validateCompiledConfig(config, kernel, expectedVersion = getKernelUpstream(kernel).stable) {
   const errors = [];
+  let schema;
+  try {
+    schema = getKernelSchema(kernel, expectedVersion);
+  } catch (error) {
+    errors.push(error.message);
+    return { ok: false, errors, kernel, version: expectedVersion, schemaId: null };
+  }
+
+  validateRootSchema(config, schema, errors);
   const upstream = getKernelUpstream(kernel);
   if (expectedVersion !== upstream.stable) errors.push("schema validator is pinned to " + upstream.name + " " + upstream.stable + "; requested " + expectedVersion);
 
-  if (!nonEmptyObject(config)) {
-    errors.push("compiled configuration must be an object");
-  } else if (kernel === Kernels.MIHOMO) {
-    if (!Array.isArray(config.proxies)) push(errors, "Mihomo compiled configuration requires proxies");
-    else config.proxies.forEach((proxy, index) => validateMihomoProxy(proxy, index, errors));
-  } else if (kernel === Kernels.SING_BOX) {
-    if (!Array.isArray(config.outbounds)) push(errors, "sing-box compiled configuration requires outbounds");
-    else config.outbounds.forEach((outbound, index) => validateSingBoxOutbound(outbound, index, errors));
-  } else if (kernel === Kernels.XRAY) {
-    if (!Array.isArray(config.outbounds)) push(errors, "Xray compiled configuration requires outbounds");
-    else config.outbounds.forEach((outbound, index) => validateXrayOutbound(outbound, index, errors));
-  } else {
-    errors.push("unsupported kernel: " + kernel);
+  if (nonEmptyObject(config)) {
+    if (kernel === Kernels.MIHOMO) {
+      if (Array.isArray(config.proxies)) config.proxies.forEach((proxy, index) => validateMihomoProxy(proxy, index, errors));
+    } else if (kernel === Kernels.SING_BOX) {
+      if (Array.isArray(config.outbounds)) config.outbounds.forEach((outbound, index) => validateSingBoxOutbound(outbound, index, errors));
+    } else if (kernel === Kernels.XRAY) {
+      if (Array.isArray(config.outbounds)) config.outbounds.forEach((outbound, index) => validateXrayOutbound(outbound, index, errors));
+    } else {
+      errors.push("unsupported kernel: " + kernel);
+    }
   }
 
-  return { ok: errors.length === 0, errors, kernel, version: expectedVersion };
+  return { ok: errors.length === 0, errors, kernel, version: expectedVersion, schemaId: schema.schemaId };
 }
