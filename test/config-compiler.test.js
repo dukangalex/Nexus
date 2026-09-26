@@ -272,6 +272,25 @@ test("materializes fail-closed terminal routing for all kernels", () => {
   assert.equal(xray.config.outbounds.at(-1).protocol, "blackhole");
 });
 
+
+test("materializes effective security defaults into every kernel compilation", () => {
+  const base = {
+    nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }]
+  };
+
+  const mihomo = compileUnifiedConfig({ ...base, kernel: Kernels.MIHOMO });
+  assert.ok(mihomo.config.rules.includes("IP-CIDR6,::/0,REJECT"));
+  assert.ok(mihomo.config.rules.includes("DST-PORT,3478,REJECT"));
+
+  const sing = compileUnifiedConfig({ ...base, kernel: Kernels.SING_BOX });
+  assert.ok(sing.config.route.rules.some((rule) => rule.action === "reject" && rule.ip_cidr?.includes("::/0")));
+  assert.ok(sing.config.route.rules.some((rule) => rule.action === "reject" && rule.port?.includes(3478)));
+
+  const xray = compileUnifiedConfig({ ...base, kernel: Kernels.XRAY });
+  assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-IPv6-Blackhole"));
+  assert.ok(xray.config.routing.rules.some((rule) => rule.ruleTag === "Nexus-WebRTC-3478"));
+});
+
 test("preserves explicit secure routing default targets", () => {
   const base = {
     nodes: [{ id: "us-1", name: "us-1", protocol: "socks", server: "example.com", port: 1080 }],
