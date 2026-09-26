@@ -148,6 +148,7 @@ export function compileUnifiedConfig(config, kernel = config && config.kernel) {
   const nodeTargets = nodeTargetMap(config);
   const kernelConfig = {
     ...config,
+    security: preflight.security.policy,
     groups: compiledGroups.groups,
     routing: routingForKernel(config.routing, resolvedChains, compiledGroups, nodeTargets),
   };
