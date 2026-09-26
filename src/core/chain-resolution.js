@@ -13,9 +13,7 @@ function nodeById(nodes) {
 
 function groupById(groups) {
   if (groups instanceof Map) return groups;
-  if (Array.isArray(groups)) {
-    return new Map(groups.filter((group) => group && group.id).map((group) => [group.id, group]));
-  }
+  if (Array.isArray(groups)) return new Map(groups.filter((group) => group && group.id).map((group) => [group.id, group]));
   return new Map(Object.entries(groups || {}).filter((entry) => entry[1] && entry[1].id).map((entry) => [entry[0], entry[1]]));
 }
 
@@ -42,20 +40,24 @@ function deterministicIndex(nodes, key) {
   return (hash >>> 0) % nodes.length;
 }
 
-function selectMember(group, candidates, context) {
+function needsReselect(groupId, context) {
+  const groups = context.healing && context.healing.reselectGroups;
+  return groups instanceof Set && groups.has(groupId);
+}
+
+function selectMember(group, candidates, context, groupId) {
   const options = group && group.options && typeof group.options === "object" ? group.options : {};
   if (!candidates.length) return null;
+  const reselect = needsReselect(groupId, context);
   if (group.type === "select") {
-    const selected = text(context.selected || options.selected);
+    const selected = reselect ? "" : text(context.selected || options.selected);
     if (selected) return candidates.find((node) => node.id === selected) || null;
     return candidates[0];
   }
-  if (group.type === "url_test" || group.type === "region") {
-    return candidates.slice().sort((a, b) => score(a, context.states) - score(b, context.states))[0];
-  }
+  if (group.type === "url_test" || group.type === "region") return candidates.slice().sort((a, b) => score(a, context.states) - score(b, context.states))[0];
   if (group.type === "fallback") return candidates[0];
   if (group.type === "load_balance") {
-    const index = Number.isInteger(context.index) ? Math.abs(context.index) % candidates.length : deterministicIndex(candidates, context.key);
+    const index = reselect ? 0 : (Number.isInteger(context.index) ? Math.abs(context.index) % candidates.length : deterministicIndex(candidates, context.key));
     return candidates[index];
   }
   return null;
@@ -70,10 +72,8 @@ function resolveGroup(group, context, stack, depth) {
 
   const nextStack = new Set(stack);
   nextStack.add(id);
-  const members = Array.isArray(group.members) ? group.members : [];
   const candidates = [];
-
-  for (const rawMember of members) {
+  for (const rawMember of Array.isArray(group.members) ? group.members : []) {
     const memberId = text(rawMember);
     if (!memberId) continue;
     const node = context.nodesById.get(memberId);
@@ -89,7 +89,7 @@ function resolveGroup(group, context, stack, depth) {
   }
 
   const unique = [...new Map(candidates.map((node) => [node.id, node])).values()];
-  const member = selectMember(group, unique, context);
+  const member = selectMember(group, unique, context, id);
   if (!member) return result(false, {}, "chain group has no usable member: " + id);
   return result(true, { hop: member, source: "group", groupId: id });
 }
@@ -97,7 +97,6 @@ function resolveGroup(group, context, stack, depth) {
 function resolveHop(hop, context, stack, depth) {
   if (!hop || typeof hop !== "object") return result(false, {}, "invalid chain hop");
   if (depth > context.maxDepth) return result(false, {}, "chain resolution depth exceeded");
-
   if (Array.isArray(hop.chain)) {
     const chainId = text(hop.id) || "<anonymous>";
     if (stack.has(chainId)) return result(false, {}, "chain cycle detected: " + chainId);
@@ -105,14 +104,12 @@ function resolveHop(hop, context, stack, depth) {
     nextStack.add(chainId);
     return resolveChainInternal(hop.chain, context, nextStack, depth + 1);
   }
-
   const groupId = text(hop.group || hop.groupId);
   if (groupId) {
     const group = context.groups.get(groupId);
     if (!group) return result(false, {}, "chain group not found: " + groupId);
     return resolveGroup(group, context, stack, depth);
   }
-
   const id = text(hop.id);
   if (!id) return result(false, {}, "chain hop requires id, group, or nested chain");
   const node = context.nodesById.get(id);
@@ -123,14 +120,12 @@ function resolveHop(hop, context, stack, depth) {
 
 function resolveChainInternal(hops, context, stack, depth) {
   if (!Array.isArray(hops) || hops.length < 2) return result(false, {}, "chain requires at least two resolved hops");
-
   const resolved = [];
   const seenNodes = new Set();
   for (const hop of hops) {
     const selected = resolveHop(hop, context, stack, depth);
     if (!selected.ok) return selected;
     const value = selected.data;
-
     if (Array.isArray(value.hops)) {
       for (const nested of value.hops) {
         if (!nested || !nested.id) return result(false, {}, "nested chain contains invalid node");
@@ -140,20 +135,18 @@ function resolveChainInternal(hops, context, stack, depth) {
       }
       continue;
     }
-
     const node = value.hop;
     if (!node || !node.id) return result(false, {}, "resolved chain hop has no node id");
     if (seenNodes.has(node.id)) return result(false, {}, "duplicate/self chain detected: " + node.id);
     seenNodes.add(node.id);
     resolved.push(node);
   }
-
   if (resolved.length < 2) return result(false, {}, "chain requires at least two resolved hops");
   return result(true, { hops: resolved });
 }
 
-export function resolveChain(hops, { nodes = [], groups = {}, states, maxDepth = DEFAULT_MAX_DEPTH } = {}) {
+export function resolveChain(hops, { nodes = [], groups = {}, states, healing, maxDepth = DEFAULT_MAX_DEPTH } = {}) {
   const depth = Number.isInteger(maxDepth) && maxDepth > 0 ? maxDepth : DEFAULT_MAX_DEPTH;
-  const context = { nodes, nodesById: nodeById(nodes), groups: groupById(groups), states, maxDepth: depth };
+  const context = { nodes, nodesById: nodeById(nodes), groups: groupById(groups), states, healing, maxDepth: depth };
   return resolveChainInternal(hops, context, new Set(), 0);
 }
